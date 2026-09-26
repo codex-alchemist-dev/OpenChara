@@ -1,0 +1,22 @@
+{
+  "format_version": "1.26.30",
+  "minecraft:item": {
+    "description": {
+      "identifier": "{{ns}}:equip_test_item",
+      "menu_category": {
+        "category": "items"
+      }
+    },
+    "components": {
+      "minecraft:icon": {
+        "textures": {
+          "default": "{{ns}}_soul_token"
+        }
+      },
+      "minecraft:display_name": {
+        "value": "Equip Slot Test Item"
+      },
+      "minecraft:max_stack_size": 64
+    }
+  }
+}
