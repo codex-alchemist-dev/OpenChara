@@ -31,7 +31,7 @@
         "minecraft:equippable": {
           "slots": [
             { "slot": 0, "item": "minecraft:saddle", "accepted_items": ["minecraft:saddle", "minecraft:stick", "{{ns}}:equip_test_item"] },
-            { "slot": 1, "item": "minecraft:apple" },
+            { "slot": 1, "item": "minecraft:apple", "accepted_items": ["minecraft:apple", "minecraft:stick", "{{ns}}:equip_test_item"] },
             { "slot": 2, "item": "minecraft:apple", "accepted_items": ["minecraft:apple", "minecraft:stick", "{{ns}}:equip_test_item"] },
             { "slot": 3, "item": "minecraft:apple", "accepted_items": ["minecraft:apple", "minecraft:stick", "{{ns}}:equip_test_item"] },
             { "slot": 4, "item": "minecraft:apple", "accepted_items": ["minecraft:apple", "minecraft:stick", "{{ns}}:equip_test_item"] },
