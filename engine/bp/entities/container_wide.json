@@ -70,7 +70,7 @@
         "minecraft:is_chested": {},
         "minecraft:inventory": {
           "container_type": "horse",
-          "inventory_size": 500,
+          "inventory_size": 405,
           "private": false,
           "restrict_to_owner": true
         },
@@ -78,7 +78,10 @@
           "slots": [
             {
               "slot": 0,
-              "item": "minecraft:saddle"
+              "item": "minecraft:saddle",
+              "accepted_items": [
+                "minecraft:saddle"
+              ]
             },
             {
               "slot": 1,
@@ -102,74 +105,6 @@
             },
             {
               "slot": 6,
-              "item": "minecraft:apple"
-            },
-            {
-              "slot": 7,
-              "item": "minecraft:apple"
-            },
-            {
-              "slot": 8,
-              "item": "minecraft:apple"
-            },
-            {
-              "slot": 9,
-              "item": "minecraft:apple"
-            },
-            {
-              "slot": 10,
-              "item": "minecraft:apple"
-            },
-            {
-              "slot": 11,
-              "item": "minecraft:apple"
-            },
-            {
-              "slot": 12,
-              "item": "minecraft:apple"
-            },
-            {
-              "slot": 13,
-              "item": "minecraft:apple"
-            },
-            {
-              "slot": 14,
-              "item": "minecraft:apple"
-            },
-            {
-              "slot": 15,
-              "item": "minecraft:apple"
-            },
-            {
-              "slot": 16,
-              "item": "minecraft:apple"
-            },
-            {
-              "slot": 17,
-              "item": "minecraft:apple"
-            },
-            {
-              "slot": 18,
-              "item": "minecraft:apple"
-            },
-            {
-              "slot": 19,
-              "item": "minecraft:apple"
-            },
-            {
-              "slot": 20,
-              "item": "minecraft:apple"
-            },
-            {
-              "slot": 21,
-              "item": "minecraft:apple"
-            },
-            {
-              "slot": 22,
-              "item": "minecraft:apple"
-            },
-            {
-              "slot": 23,
               "item": "minecraft:apple"
             }
           ]
