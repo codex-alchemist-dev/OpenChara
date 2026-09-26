@@ -27,7 +27,21 @@
       "{{ns}}_container_tamed": {
         "minecraft:is_tamed": {},
         "minecraft:is_chested": {},
-        "minecraft:inventory": { "container_type": "horse", "inventory_size": 30, "private": false, "restrict_to_owner": true }
+        "minecraft:inventory": { "container_type": "horse", "inventory_size": 30, "private": false, "restrict_to_owner": true },
+        "minecraft:equippable": {
+          "slots": [
+            { "slot": 0, "item": "minecraft:saddle" },
+            { "slot": 1, "item": "minecraft:apple" },
+            { "slot": 2, "item": "minecraft:apple" },
+            { "slot": 3, "item": "minecraft:apple" },
+            { "slot": 4, "item": "minecraft:apple" },
+            { "slot": 5, "item": "minecraft:apple" },
+            { "slot": 6, "item": "minecraft:apple" },
+            { "slot": 7, "item": "minecraft:apple" },
+            { "slot": 8, "item": "minecraft:apple" },
+            { "slot": 9, "item": "minecraft:apple" }
+          ]
+        }
       }
     }
   }
