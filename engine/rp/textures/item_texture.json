@@ -4,6 +4,9 @@
   "texture_data": {
     "{{ns}}_soul_token": {
       "textures": "textures/items/heartofthesea_closed"
+    },
+    "{{ns}}_blank": {
+      "textures": "textures/items/oc_blank"
     }
   }
 }

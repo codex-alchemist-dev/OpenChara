@@ -1,0 +1,22 @@
+{
+  "format_version": "1.21.10",
+  "minecraft:item": {
+    "description": {
+      "identifier": "{{ns}}:blank_marker",
+      "menu_category": {
+        "category": "none"
+      }
+    },
+    "components": {
+      "minecraft:icon": {
+        "textures": {
+          "default": "{{ns}}_blank"
+        }
+      },
+      "minecraft:display_name": {
+        "value": " "
+      },
+      "minecraft:max_stack_size": 64
+    }
+  }
+}
