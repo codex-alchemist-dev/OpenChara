@@ -29,7 +29,7 @@ OpenChara (this repo, public)          Your project (any repo, public or private
   - Squad coordination: target saturation and posture.
   - CQB playbooks: breach, room clear, slice the pie.
   - Hunting that cuts off the prey's escape routes first, and multi-squad army coordination.
-- **Custom UI system** ([docs/UI.md](docs/UI.md)):
+- **Custom UI system** ([docs/UI.md](docs/UI.md); the compiler/runtime itself lives in [MinUI](https://github.com/codex-alchemist-dev/MinUI), OpenChara just consumes it):
   - An HTML/CSS-like screen language compiled to JSON UI, with templates, loops, conditions, animations and actions.
   - Menus with navigation, pickers and dialogue, plus a persistent per-player HUD and chest-style container screens.
   - An RTS command mode.
