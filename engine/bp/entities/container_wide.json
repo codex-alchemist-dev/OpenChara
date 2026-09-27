@@ -70,7 +70,7 @@
         "minecraft:is_chested": {},
         "minecraft:inventory": {
           "container_type": "horse",
-          "inventory_size": 387,
+          "inventory_size": 438,
           "private": false,
           "restrict_to_owner": true
         },
