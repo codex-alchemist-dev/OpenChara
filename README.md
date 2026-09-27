@@ -54,3 +54,13 @@ After a script change, run `/reload` in-game. New entities, items or textures ne
 ## Writing a project
 
 See [docs/PATCHES.md](docs/PATCHES.md) for the full patch format.
+
+## Contributing
+
+Issues and PRs welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for the
+process and ground rules (no runtime dependencies, `node tools/openchara.js check`
+before opening a PR, small focused changes).
+
+## License
+
+[MIT](LICENSE).
