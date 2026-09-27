@@ -4,6 +4,8 @@ An open character framework for Minecraft Bedrock add-ons. OpenChara is the *sys
 
 You write a project's `PATCHES/` folder. OpenChara builds it, together with the engine, into a normal behavior pack + resource pack.
 
+A [Codex Alchemist](https://github.com/codex-alchemist-dev) project, under Fireball Everything. See [AUTHORS.md](AUTHORS.md).
+
 ```
 OpenChara (this repo, public)          Your project (any repo, public or private)
   engine/   systems + templates  ─┐      PATCHES/
