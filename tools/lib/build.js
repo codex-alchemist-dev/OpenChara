@@ -285,19 +285,11 @@ function manifests(p) {
     return { bp, rp };
 }
 
-// ---- main -------------------------------------------------------------------
-function build(projectDir) {
-    const p = loadProject(projectDir);
-    const { compileUi } = require(path.join(p.minuiDir, "lib", "compile.js"));
-    const { generatePortraits } = require(path.join(p.minuiDir, "lib", "portraits.js"));
-    const vars = placeholders(p);
-    const content = loadContent(p);
-    const engine = path.join(p.engineDir, "engine");
-    const bp = new Map(), rp = new Map();
-    const put = (map, rel, data) => map.set(rel, Buffer.isBuffer(data) ? data : Buffer.from(data, "utf8"));
-    const json = v => JSON.stringify(v, null, 2) + "\n";
+const put = (map, rel, data) => map.set(rel, Buffer.isBuffer(data) ? data : Buffer.from(data, "utf8"));
+const json = v => JSON.stringify(v, null, 2) + "\n";
 
-    // 2. engine templates
+// Step 2: engine/bp, engine/rp templates, with {{placeholders}} filled.
+function copyEngineTemplates(p, engine, vars, { bp, rp }) {
     for (const [src, map] of [[path.join(engine, "bp"), bp], [path.join(engine, "rp"), rp]]) {
         for (const rel of walk(src)) {
             const buf = fs.readFileSync(path.join(src, rel));
@@ -305,13 +297,17 @@ function build(projectDir) {
             put(map, outRel, TEXT_EXT.has(path.extname(rel)) ? fill(buf.toString("utf8"), vars) : buf);
         }
     }
+}
 
-    // 2b. MinUI (github.com/Cookiesmuch/MinUI) - the UI compiler/runtime's
-    // own repo. Its rp/ files land at the same output paths OpenChara's own
-    // engine/rp/ui files always have; its runtime/ scripts land at
-    // scripts/openchara/ui/, alongside OpenChara's OWN remaining files in
-    // that same folder (builtins.js, bag.js, rts.js - genuinely
-    // OpenChara-specific, not generic UI mechanism, so they stayed put).
+// Step 2b: MinUI (github.com/Cookiesmuch/MinUI) - the UI compiler/runtime's
+// own repo. Its rp/ files land at the same output paths OpenChara's own
+// engine/rp/ui files always have; its runtime/ scripts land at
+// scripts/openchara/ui/, alongside OpenChara's OWN remaining files in that
+// same folder (builtins.js, bag.js, rts.js - genuinely OpenChara-specific,
+// not generic UI mechanism, so they stayed put).
+// @returns {Set<string>} the relative paths MinUI's runtime/ contributed -
+//   copyEngineScripts() below needs this to avoid double-copying them.
+function copyMinUiAssets(p, vars, { bp, rp }) {
     for (const rel of walk(path.join(p.minuiDir, "rp"))) {
         const buf = fs.readFileSync(path.join(p.minuiDir, "rp", rel));
         put(rp, rel, TEXT_EXT.has(path.extname(rel)) ? fill(buf.toString("utf8"), vars) : buf);
@@ -321,25 +317,34 @@ function build(projectDir) {
         minuiRuntimeFiles.add(rel);
         put(bp, `scripts/openchara/ui/${rel}`, fs.readFileSync(path.join(p.minuiDir, "runtime", rel)));
     }
+    return minuiRuntimeFiles;
+}
 
-    // 3. engine scripts
+// Step 3: engine scripts (devtools only if enabled; MinUI's own runtime
+// files, already copied above, are skipped here rather than duplicated).
+function copyEngineScripts(p, engine, minuiRuntimeFiles, { bp }) {
     const scripts = path.join(engine, "scripts");
     for (const rel of walk(scripts)) {
         if (!p.devTools && rel.startsWith("openchara/devtools/")) continue;
-        if (rel.startsWith("openchara/ui/") && minuiRuntimeFiles.has(rel.slice("openchara/ui/".length))) continue; // now MinUI's, copied above
+        if (rel.startsWith("openchara/ui/") && minuiRuntimeFiles.has(rel.slice("openchara/ui/".length))) continue;
         put(bp, `scripts/${rel}`, fs.readFileSync(path.join(scripts, rel)));
     }
+}
 
-    // 3b. automatic portraits (before the content module, which carries
-    // their paths). A character's own portrait/bust fields always win.
+// Step 3b: automatic portraits (before the content module, which carries
+// their paths). A character's own portrait/bust fields always win.
+function applyPortraits(p, content, generatePortraits, { rp }) {
     const portraits = generatePortraits(p, content.characters, walk);
     for (const [rel, buf] of portraits.files) put(rp, rel, buf);
     for (const [id, pp] of Object.entries(portraits.paths)) {
         content.characters[id].portrait ??= pp.portrait;
         content.characters[id].bust ??= pp.bust;
     }
+}
 
-    // 4. generated
+// Step 4: generated content module, character entity (with nav slots),
+// client entity + render controller, manifests.
+function writeGeneratedFiles(p, content, { bp, rp }) {
     put(bp, "scripts/openchara/content.generated.js", generatedContentModule(p, content));
     const charRel = `entities/${p.character.key}.json`;
     if (bp.has(charRel)) put(bp, charRel, JSON.stringify(navSlotCharacterEntity(JSON.parse(bp.get(charRel).toString("utf8")), p, content)));
@@ -348,16 +353,18 @@ function build(projectDir) {
     const m = manifests(p);
     put(bp, "manifest.json", json(m.bp));
     put(rp, "manifest.json", json(m.rp));
+}
 
-    // lang: pack name/description + engine strings + project strings
+// Lang: pack name/description + engine strings + project strings. Every
+// language also goes into a script table, for per-player language
+// overrides (ui/i18n.js). Only real Minecraft game locales go into the
+// packs' texts/ - the client picks those by the game language; others
+// (e.g. fil_PH) are reachable through the override only.
+function writeLanguages(p, engine, vars, { bp, rp }) {
     const langDirEngine = path.join(engine, "lang");
     const langDirProject = path.join(p.patchesDir, "lang");
     const locales = new Set([...walk(langDirEngine), ...walk(langDirProject)].filter(f => f.endsWith(".lang")));
     if (locales.size === 0) locales.add("en_US.lang");
-    // Every language also goes into a script table, for per-player language
-    // overrides (ui/i18n.js). Only real Minecraft game locales go into the
-    // packs' texts/ - the client picks those by the game language; others
-    // (e.g. fil_PH) are reachable through the override only.
     const langTables = {};
     const gameTexts = {};
     // Each locale sits on top of English, key by key, so anything it
@@ -387,10 +394,12 @@ function build(projectDir) {
     put(rp, "texts/languages.json", langJson);
     const langRuntime = Object.fromEntries(Object.entries(langTables).map(([id, table]) => [id, { name: table["openchara.language.name"] ?? id, table }]));
     put(bp, "scripts/openchara/ui/lang.generated.js", `// GENERATED by OpenChara build from lang/*.lang - do not edit.\nexport const LANGS = ${JSON.stringify(langRuntime)};\n`);
+}
 
-    // 4b. UI: PATCHES/ui/*.ui.html + *.ui.css -> JSON UI + runtime table.
-    // Always generated (an empty root when a project has no screens), since
-    // the engine's server_form hook and runtime reference both.
+// Step 4b: UI - PATCHES/ui/*.ui.html + *.ui.css -> JSON UI + runtime table.
+// Always generated (an empty root when a project has no screens), since the
+// engine's server_form hook and runtime reference both.
+function compileAndWriteUi(p, compileUi, { bp, rp }) {
     const uiDir = path.join(p.patchesDir, "ui");
     const uiFiles = walk(uiDir).filter(f => f.endsWith(".ui.html") || f.endsWith(".ui.css"))
         .map(rel => ({ rel, text: fs.readFileSync(path.join(uiDir, rel), "utf8") }));
@@ -398,21 +407,25 @@ function build(projectDir) {
     // Generated JSON UI is written minified: deeply nested, it is several times larger indented.
     for (const [rel, obj] of Object.entries(ui.rp)) put(rp, rel, JSON.stringify(obj));
     put(bp, "scripts/openchara/ui/screens.generated.js", ui.runtime);
+}
 
-    // 5. content scripts
+// Step 5: content scripts, each imported once by main.js (ES modules only
+// evaluate once, so a script that's also imported by another is fine). A
+// project can list "contentScripts" in project.json to choose exactly which
+// files are entry points instead of every script under PATCHES/scripts.
+function writeContentScriptsAndMain(p, { bp }) {
     const contentDir = path.join(p.patchesDir, "scripts");
     const contentScripts = walk(contentDir).filter(f => f.endsWith(".js"));
     for (const rel of walk(contentDir)) put(bp, `scripts/content/${rel}`, fs.readFileSync(path.join(contentDir, rel)));
-    // Every content script is imported once by main.js (ES modules only
-    // evaluate once, so a script that's also imported by another is fine).
-    // A project can list "contentScripts" in project.json to choose exactly
-    // which files are entry points instead.
     const entryScripts = p.contentScripts ?? contentScripts;
     put(bp, "scripts/main.js", generatedMain(p, entryScripts));
+}
 
-    // 6. overlays (last, so a project can replace any engine file).
-    // Shared registry files are MERGED instead of replaced - an engine item
-    // texture and a project item texture must both survive.
+// Step 6: PATCHES/bp, PATCHES/rp overlaid LAST, so a project file at the
+// same path replaces the engine's. Shared registry files are MERGED
+// instead of replaced - an engine item texture and a project item texture
+// must both survive.
+function applyProjectOverlays(p, { bp, rp }) {
     for (const [src, map] of [[path.join(p.patchesDir, "bp"), bp], [path.join(p.patchesDir, "rp"), rp]]) {
         for (const rel of walk(src)) {
             const buf = fs.readFileSync(path.join(src, rel));
@@ -420,6 +433,28 @@ function build(projectDir) {
             else put(map, rel, buf);
         }
     }
+}
+
+// ---- main -------------------------------------------------------------------
+function build(projectDir) {
+    const p = loadProject(projectDir);
+    const { compileUi } = require(path.join(p.minuiDir, "lib", "compile.js"));
+    const { generatePortraits } = require(path.join(p.minuiDir, "lib", "portraits.js"));
+    const vars = placeholders(p);
+    const content = loadContent(p);
+    const engine = path.join(p.engineDir, "engine");
+    const bp = new Map(), rp = new Map();
+    const maps = { bp, rp };
+
+    copyEngineTemplates(p, engine, vars, maps);
+    const minuiRuntimeFiles = copyMinUiAssets(p, vars, maps);
+    copyEngineScripts(p, engine, minuiRuntimeFiles, maps);
+    applyPortraits(p, content, generatePortraits, maps);
+    writeGeneratedFiles(p, content, maps);
+    writeLanguages(p, engine, vars, maps);
+    compileAndWriteUi(p, compileUi, maps);
+    writeContentScriptsAndMain(p, maps);
+    applyProjectOverlays(p, maps);
 
     return { project: p, bp, rp };
 }
