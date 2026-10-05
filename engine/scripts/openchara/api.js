@@ -12,6 +12,7 @@
 export { NS, CHAR, N, TAG } from "./ids.js";
 export { CONFIG, CHARACTERS, CLASSES, ABILITIES, QUESTS, SCHEMA } from "./content.generated.js";
 export { RULES } from "./rules.js";
+export { startOpenChara } from "./start.js";
 
 // ---- database: character records ----------------------------------------
 export {

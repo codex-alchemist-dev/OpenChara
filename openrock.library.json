@@ -1,0 +1,45 @@
+{
+  "openrockVersion": 1,
+  "kind": "library",
+  "name": "@openchara/core",
+  "version": "0.1.0",
+  "dependsOn": {
+    "@minui/core": {
+      "type": "submodule",
+      "path": "../MinUI",
+      "relativeTo": "package"
+    }
+  },
+  "provides": {
+    "hookNamespaces": [
+      "openchara"
+    ]
+  },
+  "scripts": {
+    "runtime": true
+  },
+  "content": {
+    "scriptsDir": "engine/scripts",
+    "scriptEntry": "openchara/api.js",
+    "scriptMounts": [
+      {
+        "from": "../MinUI/runtime",
+        "at": "openchara/ui"
+      }
+    ],
+    "entityDsl": "entities",
+    "itemDsl": "items",
+    "rpOverlayDir": "rp-overlay",
+    "localization": "lang",
+    "dslVarsProvider": "src/build/vars.js",
+    "generatedModules": [
+      {
+        "name": "openchara-content",
+        "from": "src/build/content-module.js"
+      }
+    ],
+    "scriptAliases": {
+      "devtools": "openchara/devtools/index.js"
+    }
+  }
+}
