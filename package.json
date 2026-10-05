@@ -4,9 +4,10 @@
   "description": "Open character framework for Minecraft Bedrock add-ons: character database, squads, tactical AI, progression and UI base - content comes from project PATCHES.",
   "private": true,
   "license": "MIT",
-  "bin": { "openchara": "tools/openchara.js" },
   "scripts": {
     "check-engine": "node -e \"for (const f of require('fs').readdirSync('engine/scripts/openchara')) if (f.endsWith('.js')) require('child_process').execFileSync(process.execPath, ['--check', 'engine/scripts/openchara/' + f], { stdio: 'inherit' })\""
   },
-  "engines": { "node": ">=18" }
+  "engines": {
+    "node": ">=18"
+  }
 }

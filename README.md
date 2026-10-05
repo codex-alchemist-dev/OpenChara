@@ -38,18 +38,17 @@ OpenChara (this repo, public)          Your project (any repo, public or private
 
 ## Using it
 
-Requires [Node.js](https://nodejs.org) 18+ (no npm packages needed).
+Requires [Node.js](https://nodejs.org) 18+. OpenChara is an [OpenRock](https://github.com/codex-alchemist-dev/OpenRock) library (`@openchara/core`); a project is an OpenRock mod whose `openrock.mod.json` depends on it (sibling checkouts: `../OpenRock`, `../OpenChara`, `../MinUI`).
 
 ```bash
-node tools/openchara.js dev    "../My Project"   # build + deploy to Minecraft's dev folders, then auto-redeploy on every change
-node tools/openchara.js check  "../My Project"   # build + validate only
-node tools/openchara.js build  "../My Project"   # write the packs to <project>/build/
-node tools/openchara.js export "../My Project"   # write <project>/dist/<Name> <version>.mcaddon
+node ../OpenRock/bin/openrock.js dev    .   # build + deploy to Minecraft's dev folders, then auto-redeploy on every change
+node ../OpenRock/bin/openrock.js check  .   # build + validate + boot a real Bedrock server (BDS) smoke test
+node ../OpenRock/bin/openrock.js build  .   # write the packs to <project>/build/
+node ../OpenRock/bin/openrock.js export .   # write <project>/dist/<Name> <version>.mcaddon
+node ../OpenRock/bin/openrock.js log    .   # Minecraft's own content log, filtered to your project (--follow, --all)
 ```
 
-`dev` watches both your project's `PATCHES/` and this engine folder, so a `git pull` here is picked up automatically too. Every build is validated before it's deployed: JSON is parsed, JS is syntax-checked, every import is resolved, and the compiled JSON UI is linted for known silent-failure patterns. A broken build never reaches your game; one bad import would otherwise silently kill the whole script pack.
-
-If something still misbehaves only in-game, `node tools/openchara.js log <projectDir>` reads Minecraft's own content log (JSON UI and entity errors never show up any other way) filtered to your project; add `--follow` to tail it live, `--all` to see every pack.
+Every build is validated before it's deployed: JSON UI is linted for known silent-failure patterns, scripts are bundled (a bad import fails the build instead of silently killing the pack), entities are linted, and `check` boots a real server. A broken build never reaches your game.
 
 After a script change, run `/reload` in-game. New entities, items or textures need you to rejoin the world.
 
@@ -60,7 +59,7 @@ See [docs/PATCHES.md](docs/PATCHES.md) for the full patch format.
 ## Contributing
 
 Issues and PRs welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for the
-process and ground rules (no runtime dependencies, `node tools/openchara.js check`
+process and ground rules (no runtime dependencies, `openrock check`
 before opening a PR, small focused changes).
 
 ## License

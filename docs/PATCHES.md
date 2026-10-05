@@ -1,10 +1,9 @@
 # The PATCHES format
 
-A project is any folder containing `PATCHES/`. Everything the built add-on contains beyond the engine's generic systems comes from there.
+A project is an OpenRock mod: an `openrock.mod.json` next to a `PATCHES/` folder. Everything the built add-on contains beyond the engine's generic systems comes from there.
 
 ```
 PATCHES/
-  project.json          required
   database/schema.json  what each character's record stores (the engine only stores it)
   characters/*.json     character types (species)
   classes/*.json        classes: stats, growth, positioning, skill tree
@@ -17,41 +16,42 @@ PATCHES/
   rp/**                 files copied into the resource pack as-is (textures, models, sounds, ...)
 ```
 
-Text files in the engine templates may use placeholders that your `project.json` fills in: `{{ns}}` (namespace), `{{char}}` (character key), `{{Char}}`, `{{chars}}`, `{{Chars}}` (display nouns). Your own `bp/`/`rp/` files are copied verbatim.
+Text files in the engine templates may use placeholders that the mod's `templateVars` (and `namespace`) fill in: `{{ns}}` (namespace), `{{char}}` (character key), `{{Char}}`, `{{chars}}`, `{{Chars}}` (display nouns). Your own `bp/`/`rp/` files are copied verbatim.
 
-## project.json
+## openrock.mod.json
 
 ```jsonc
 {
-  "name": "My Heroes",                 // pack name
-  "description": "...",
-  "version": [1, 0, 0],
-  "authors": ["you"],
-  "minEngineVersion": [1, 21, 0],
-  "engine": "../OpenChara",            // path to this repo, relative to the project folder
-
+  "openrockVersion": 1, "kind": "mod",
+  "name": "my-heroes", "displayName": "My Heroes", "description": "...", "version": "1.0.0", "authors": ["you"],
   "namespace": "mh",                   // every id: mh:hero, mh:hero:<id>:A, mh_hero ...
-  "character": {
-    "key": "hero",                     // entity id + storage key segment - never change after release
-    "nouns": { "one": "hero", "many": "heroes" },   // player-facing text
-    "geometry": "geometry.my_rig",     // shared rig for all characters
-    "material": "entity_alphatest"
-  },
-  "chatTag": "MH",                     // optional, defaults to the namespace upper-cased
-
+  "templateVars": { "char": "hero", "Char": "Hero", "chars": "heroes", "Chars": "Heroes" },
+  "engine": { "minEngineVersion": [1, 21, 0], "scriptModules": { "@minecraft/server": "2.6.0", "@minecraft/server-ui": "2.0.0" } },
   "packs": {                           // generate fresh UUIDs once and never change them
     "behavior": { "folder": "My Heroes B", "uuid": "...", "dataModuleUuid": "...", "scriptModuleUuid": "..." },
     "resource": { "folder": "My Heroes R", "uuid": "...", "moduleUuid": "..." }
   },
-  "scriptModules": { "@minecraft/server": "2.6.0", "@minecraft/server-ui": "2.0.0" },
-
-  "navigationSlots": 10000,            // max simultaneous pathfinding moves across the whole world
-  "devTools": false,                   // include the /scriptevent test harnesses
-  "contentScripts": ["main.js"]        // optional: only these are entry points (default: every file)
+  "dependsOn": { "@openchara/core": { "type": "submodule", "path": "../OpenChara", "relativeTo": "package" } },
+  "openchara": {                       // read by OpenChara's build (src/build/project.js)
+    "patchesDir": "PATCHES",
+    "character": { "key": "hero", "nouns": { "one": "hero", "many": "heroes" }, "geometry": "geometry.my_rig", "material": "entity_alphatest" },
+    "chatTag": "MH",                   // optional, defaults to the namespace upper-cased
+    "navigationSlots": 10000,          // max simultaneous pathfinding moves across the whole world
+    "devTools": false,                 // also import "@openchara/core/devtools" in your entry script to include the /scriptevent harnesses
+    "rules": { }
+  },
+  "content": {
+    "scriptsDir": "PATCHES/scripts", "scriptEntry": "main.js",   // main.js imports startOpenChara from "@openchara/core", your content scripts, then calls it
+    "uiDir": "PATCHES/ui", "localization": "PATCHES/lang",
+    "bpOverlayDir": "PATCHES/bp", "rpOverlayDir": "PATCHES/rp",
+    "entityDsl": "entities", "itemDsl": "items"                  // Crystal DSL sources: native entity/item JSON is not accepted
+  }
 }
 ```
 
-> **`namespace`, `character.key`, character `index` values and pack UUIDs are stored in players' worlds.** Changing any of them after release orphans existing saves.
+Content scripts import the engine as `import { ... } from "@openchara/core"`. Entities and items are authored as `*.entity.tsx` / `*.item.tsx` (OpenRock's `tools/nativeToDsl.js` converts existing JSON); the character entity itself comes from OpenChara and is driven by your `characters/*.json`. `PATCHES/lang/<locale>.lang` files are reviewed translations over the engine's; add `PATCHES/lang/localization.json` with `{"aliasRegionalLocales": true}` to reuse close regional variants.
+
+> **`namespace`, `openchara.character.key`, character `index` values and pack UUIDs are stored in players' worlds.** Changing any of them after release orphans existing saves.
 
 ## The database: engine system, project data
 
@@ -73,7 +73,7 @@ OpenChara's database *system* covers storage with A/B rollback slots, a checksum
 
 Types are `string`, `number`, `boolean`, `object`, `array` or `any`, plus optional `"nullable"` and `"optional"`. The engine's core fields can't be redefined: identity, gear, inventory, squad, order, locations, quests and bond partners. Bump `version` and register a migration whenever the fields change.
 
-**`rules`** in `project.json` tune the engine's own mechanisms: `maxRoster`, `trashGraceDays`, `maxSquads`, `maxSquadMembers`, `knockoutHp`, `knockoutSeconds`, `combatWindowSeconds`.
+**`rules`** in the manifest's `openchara` block tune the engine's own mechanisms: `maxRoster`, `trashGraceDays`, `maxSquads`, `maxSquadMembers`, `knockoutHp`, `knockoutSeconds`, `combatWindowSeconds`.
 
 **Project scripts** plug the game design in through `api.js`:
 

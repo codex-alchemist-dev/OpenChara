@@ -1,6 +1,6 @@
 # OpenChara UI
 
-The compiler and runtime described here now live in their own repo, [MinUI](https://github.com/codex-alchemist-dev/MinUI) (`../MinUI` as a sibling checkout, same convention as this repo itself relative to a project's PATCHES) - OpenChara just consumes it (`tools/lib/build.js` resolves `p.minuiDir`, defaulting to `../MinUI`). This doc stays here because it's the reference for *writing* screens in an OpenChara-based project, which is unchanged; MinUI's own README covers the actual transport/architecture (forms vs HUD vs containers, and why) in more depth.
+The compiler and runtime described here now live in their own repo, [MinUI](https://github.com/codex-alchemist-dev/MinUI) (`../MinUI` as a sibling checkout, same convention as this repo itself relative to a project's PATCHES) - OpenChara just consumes it (declared as the `@minui/core` dependency in `openrock.library.json`). This doc stays here because it's the reference for *writing* screens in an OpenChara-based project, which is unchanged; MinUI's own README covers the actual transport/architecture (forms vs HUD vs containers, and why) in more depth.
 
 OpenChara gives a project a fully custom in-game UI. You write screens in an HTML-like language with CSS-like styles. The build compiles them to Minecraft JSON UI plus a table the engine uses at runtime. Your screens get:
 
@@ -349,7 +349,7 @@ Claude Waifus' `PATCHES/scripts/rtsControls.js` is the reference wiring: its own
 
 ## 9. Linting
 
-`node tools/openchara.js check <projectDir>` (and every `build`/`deploy`/`dev`) runs a JSON UI linter over everything under `ui/` in the resource pack - the compiler's own output and any raw JSON UI a project overlays by hand. It catches the "parses fine, does nothing in-game" mistakes: `>=` in a binding (Molang has no such operator), an empty `''` literal, `collection_index` with no ancestor `collection_name`, a `button` with no `collection_details` binding, and a `$variable` inside a `modifications`-injected subtree. A build fails rather than shipping one of these silently.
+`openrock check <projectDir>` (and every `build`/`deploy`/`dev`) runs a JSON UI linter over everything under `ui/` in the resource pack - the compiler's own output and any raw JSON UI a project overlays by hand. It catches the "parses fine, does nothing in-game" mistakes: `>=` in a binding (Molang has no such operator), an empty `''` literal, `collection_index` with no ancestor `collection_name`, a `button` with no `collection_details` binding, and a `$variable` inside a `modifications`-injected subtree. A build fails rather than shipping one of these silently.
 
 ## 10. Testing
 
