@@ -19,6 +19,7 @@ import "./ui/builtins.js"; // built-in UI providers + actions (registered at loa
 import { startHud } from "./ui/hud.js";
 import { startContainers } from "./ui/container.js";
 import { startRts } from "./ui/rts.js";
+import { startBuildMode } from "./build/buildApi.js";
 import { startControlItems } from "./ui/controlItems.js";
 
 let started = false;
@@ -41,6 +42,7 @@ export function startOpenChara() {
     startHud();
     startContainers();
     startRts();
+    startBuildMode();
     startControlItems();
 
     // Self-healing on join: a full integrity scan + repair (which also runs
