@@ -70,6 +70,7 @@ Run `/scriptevent <ns>:spike <name>`; each prints what it found to chat.
 | `anchor [distance]` | does a `tick_world` entity keep a far chunk loaded? | `cameraChunkMode: "teleport"` |
 | `hud [seconds]` / `screen <w> <h>` | does the fast HUD draw and track? calibrate GUI size | keep the particle cursor (`rtsHudCursor: false`) |
 | `ghosts [seconds]` | do the generated textures resolve (no missing-texture checkerboard), are the faces right, is the tint/transparency right? Also prints which real block ids in your game have no appearance | add that addon's resource pack to `openchara.ghostSources`; if alpha is ignored, ghosts are opaque but still readable |
+| `display <block id>` | can a block we have no texture data for (any id, modded included) be shown exactly? Tries a dropped item entity, an armor stand wearing the block, and the ghost cube side by side | whichever works becomes the runtime fallback for unknown blocks; otherwise unknown blocks keep the generic ghost |
 | `hold` | which use events fire for the held item | two-click select needs only `itemUse` |
 | `scroll` | is there any hotbar-slot / scroll event (mouse-wheel extend in Build mode)? | extend tools stay hotbar items |
 

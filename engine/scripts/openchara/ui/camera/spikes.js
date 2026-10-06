@@ -9,12 +9,15 @@
 //   hold                 S2  report itemUse/itemStartUse/itemStopUse events seen on the held item for 20s
 //   ghosts [seconds]     S6  show every ghost-block texture in a row in front of you (plus a red mine cube) so a wrong
 //                            texture path (missing-texture checkerboard) or tint problem is obvious
+//   display <block id>   S7  show ONE block (any id, modded too) three ways at once, to find a way to render blocks the build
+//                            has no texture data for: a dropped item entity, an armor stand with the block on its head,
+//                            and the generic ghost cube. Removes them after 30s
 //   scroll               S5  list world events that look like hotbar/slot/scroll changes and report them for 20s
 //                            (a scroll signal would let Build mode's extend tools use the mouse wheel)
 //
 // Everything is opt-in and removes what it spawned.
 
-import { world, system, BlockTypes } from "@minecraft/server";
+import { world, system, BlockTypes, ItemStack } from "@minecraft/server";
 import { ANCHOR_TYPE } from "./chunkAnchor.js";
 import { setRtsHudScreen, getRtsHudScreen, hudSpike } from "./rtsHud.js";
 import { createGhostLayer, releaseGhostLayer, ghostTextureIndex } from "../../build/ghostEntities.js";
@@ -114,6 +117,30 @@ function spikeGhosts(player, seconds) {
     system.runTimeout(() => { system.clearRun(tick); releaseGhostLayer(player.id); say(player, "ghost cubes removed."); }, seconds * 20);
 }
 
+function spikeDisplay(player, blockId) {
+    if (!blockId || !blockId.includes(":")) { say(player, "usage: display <namespace:block_id>, e.g. display minecraft:grass_block"); return; }
+    const dim = player.dimension;
+    const here = player.location;
+    const at = dx => ({ x: Math.floor(here.x) + dx + 0.5, y: Math.floor(here.y), z: Math.floor(here.z) + 3.5 });
+    const made = [];
+    const attempt = (label, fn) => { try { made.push(fn()); say(player, `${label}: spawned`); } catch (e) { say(player, `${label}: failed (${e?.message ?? e})`); } };
+    attempt("1) item entity (left)", () => dim.spawnItem(new ItemStack(blockId, 1), at(-3)));
+    attempt("2) armor stand with the block on its head (middle)", () => {
+        const stand = dim.spawnEntity("minecraft:armor_stand", at(0));
+        stand.getComponent("minecraft:equippable").setEquipment("Head", new ItemStack(blockId, 1));
+        return stand;
+    });
+    attempt("3) generic ghost cube (right)", () => {
+        const layer = createGhostLayer(player);
+        const c = at(3);
+        layer.sync([{ x: Math.floor(c.x), y: Math.floor(c.y), z: Math.floor(c.z), op: "build", block: blockId }]);
+        made.push({ remove: () => releaseGhostLayer(player.id) });
+        return { remove() {} };
+    });
+    say(player, "Compare them: does 1) look like the real block (shape + textures)? Is 2) visible and sized like a block? Removing in 30s.");
+    system.runTimeout(() => { for (const e of made) { try { e.remove(); } catch (err) { /* fine */ } } say(player, "display test removed."); }, 600);
+}
+
 export function startCameraSpikes() {
     try {
         system.afterEvents.scriptEventReceive.subscribe(ev => {
@@ -129,7 +156,8 @@ export function startCameraSpikes() {
                 else if (name === "hold") spikeHold(player);
                 else if (name === "scroll") spikeScroll(player);
                 else if (name === "ghosts") spikeGhosts(player, Number(a) || 30);
-                else say(player, "spikes: fov | anchor [distance] | hud [seconds] | screen <w> <h> | hold | scroll | ghosts [seconds]");
+                else if (name === "display") spikeDisplay(player, a);
+                else say(player, "spikes: fov | anchor [distance] | hud [seconds] | screen <w> <h> | hold | scroll | ghosts [seconds] | display <block id>");
             } catch (e) { say(player, `spike failed: ${e?.message ?? e}`); }
         });
     } catch (e) { /* older API */ }
