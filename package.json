@@ -6,7 +6,7 @@
   "license": "MIT",
   "scripts": {
     "check-engine": "node -e \"for (const f of require('fs').readdirSync('engine/scripts/openchara')) if (f.endsWith('.js')) require('child_process').execFileSync(process.execPath, ['--check', 'engine/scripts/openchara/' + f], { stdio: 'inherit' })\"",
-    "test": "node test/camera.test.mjs"
+    "test": "node test/camera.test.mjs && node test/build.test.mjs"
   },
   "engines": {
     "node": ">=18"

@@ -8,6 +8,11 @@
       "type": "submodule",
       "path": "../MinUI",
       "relativeTo": "package"
+    },
+    "@mclite/core": {
+      "type": "submodule",
+      "path": "../MCLite",
+      "relativeTo": "package"
     }
   },
   "provides": {
