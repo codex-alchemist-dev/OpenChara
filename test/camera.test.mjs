@@ -2,6 +2,7 @@
 import assert from "node:assert";
 import { lookToScreen, screenToRay, worldToScreen, cameraBasis, rectFromCorners, rectContains, toPixels, DEFAULT_CURSOR_CONFIG as CFG } from "../engine/scripts/openchara/ui/camera/screenCursor.js";
 import { panRts, freeFly, readInputs } from "../engine/scripts/openchara/ui/camera/cameraRig.js";
+import { hudValues, DEFAULT_HUD_SCREEN, CURSOR_SIZE } from "../engine/scripts/openchara/ui/camera/rtsHudMath.js";
 import { createSelection, useSelect, boxQuery, toggleCharacter, pendingRect, resolveMembers, prune, clearSelection, isEmpty } from "../engine/scripts/openchara/ui/camera/rtsSelection.js";
 
 let passed = 0;
@@ -143,6 +144,14 @@ test("useSelect non-additive replaces; toggle, clear, resolveMembers, prune", ()
     assert.ok(!sel.charIds.has("d"));
     clearSelection(sel);
     assert.ok(isEmpty(sel) && sel.cornerA === null);
+});
+
+test("hudValues: cursor centered on the screen point, box from the pending rect, hidden box is zero", () => {
+    const v = hudValues({ screen: { u: 0.5, v: 0.5 }, rect: null, selected: 3 }, DEFAULT_HUD_SCREEN);
+    near(v.cx, 320 - CURSOR_SIZE / 2); near(v.cy, 180 - CURSOR_SIZE / 2);
+    assert.deepStrictEqual([v.bw, v.bh], [0, 0]);
+    const w = hudValues({ screen: { u: 0, v: 0 }, rect: { u0: 0.25, v0: 0.5, u1: 0.5, v1: 1 }, selected: 0 }, { w: 400, h: 200 });
+    assert.deepStrictEqual([w.bx, w.by, w.bw, w.bh], [100, 100, 100, 100]);
 });
 
 console.log(`\n${passed} passed${process.exitCode ? ", with failures" : ""}`);

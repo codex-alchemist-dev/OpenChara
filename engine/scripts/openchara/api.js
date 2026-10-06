@@ -75,6 +75,7 @@ export {
     enterRts, exitRts, isInRts, getRtsInfo, registerRtsExitHook,
     rtsSelectSquad, rtsSelectUse, rtsNextFormation, rtsMove, rtsAttack, rtsSurround, rtsSummonHere, registerRtsActionFx,
 } from "./ui/rts.js";
+export { rtsHudValues, setRtsHudScreen, getRtsHudScreen } from "./ui/camera/rtsHud.js";
 export { registerControlItem, setControlItems, clearControlItems } from "./ui/controlItems.js";
 export { registerLanguage, listLanguages, getPlayerLanguage, setPlayerLanguage, translate } from "./ui/i18n.js";
 export { getMemberAxes } from "./fsm.js";

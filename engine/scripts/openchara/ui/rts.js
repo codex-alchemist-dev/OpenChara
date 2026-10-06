@@ -35,6 +35,7 @@ import { DEFAULT_CURSOR_CONFIG as CURSOR_CFG, lookToScreen, screenToRay } from "
 import { createSelection, clearSelection, useSelect, toggleCharacter, pendingRect, boxQuery, resolveMembers, prune, isEmpty } from "./camera/rtsSelection.js";
 import { fieldedCharacters, projectFielded, squadMemberIds } from "./camera/rtsField.js";
 import { drawCursor, drawSelection, drawHover, drawBox } from "./camera/rtsFx.js";
+import { RULES } from "../rules.js";
 import { NS, TAG } from "../ids.js";
 
 const POSE = Object.freeze({ pitch: 55, yaw: 0 });
@@ -137,7 +138,7 @@ function drawFeedback(player, s, hit) {
         drawBox(player, rect, s.cam, POSE, CURSOR_CFG, s.groundY ?? s.cam.y - 20);
     }
     const own = s.target ? identifyCharacter(s.target)?.ownerId === player.id : false;
-    drawCursor(player, { hitBlock: hit ? hit.block.location : null, target: s.target, targetIsOwn: own, action: heldAction(player) });
+    drawCursor(player, { hitBlock: hit && !RULES.rtsHudCursor ? hit.block.location : null, target: s.target, targetIsOwn: own, action: heldAction(player) });
 }
 
 // ---- commands ---------------------------------------------------------------------------------
@@ -291,6 +292,7 @@ export function getRtsInfo(player) {
         target: targetName,
         height: s.groundY !== undefined ? Math.round(s.cam.y - s.groundY) : 20,
         screen: s.uv,
+        rect: pendingRect(s.sel, s.uv),
         boxPending: Boolean(s.sel.cornerA),
         selected: all.length,
     };

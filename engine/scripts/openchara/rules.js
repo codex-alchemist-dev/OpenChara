@@ -14,6 +14,7 @@ const DEFAULTS = {
     knockoutSeconds: 30,    // how long a knocked-out character can't be re-summoned
     combatWindowSeconds: 5, // "in combat" = dealt or took damage this recently
     cameraChunkMode: "anchor", // how camera modes keep chunks loaded: "anchor" (tick_world entity) or "teleport" (legacy)
+    rtsHudCursor: false,    // draw the RTS cursor and selection box as a HUD sprite (needs the fast-HUD spike to pass in-game)
     buildArchiveDays: 30,   // how long an archived build schematic is kept before it is purged
 };
 
