@@ -28,6 +28,7 @@ import { world, system, InputPermissionCategory } from "@minecraft/server";
 import { serializeItem, deserializeItem } from "../../itemSerializer.js";
 import { NS, TAG } from "../../ids.js";
 import { snapshotPlayer, writePlayer, clearPlayer, itemSig, SLOT_COUNT } from "./playerItems.js";
+import { startChunkAnchorSweep } from "./chunkAnchor.js";
 
 export const BODY_TYPE = `${NS}:rts_body`;
 const OWNER_TAG = `${NS}:rtsOwner`;
@@ -153,6 +154,7 @@ export function createCameraSession(mode) {
         mode,
         enter, exit, stop, restore, readState,
         isActive: player => active.has(player.id),
+        isActiveId: playerId => active.has(playerId),
         state: player => active.get(player.id) ?? null,
         registerExitHook: fn => { exitHooks.push(fn); },
     };
@@ -160,10 +162,13 @@ export function createCameraSession(mode) {
     return api;
 }
 
+export const isAnyCameraActive = playerId => sessions.some(s => s.isActiveId(playerId));
+
 /** Relog / respawn / death / dimension change / reload handling and orphan body cleanup, for every session. Idempotent. */
 export function startCameraSessions() {
     if (wired) return;
     wired = true;
+    startChunkAnchorSweep(isAnyCameraActive);
     world.afterEvents.playerSpawn.subscribe(ev => {
         for (const s of sessions) {
             if (s.isActive(ev.player)) s.stop(ev.player.id);

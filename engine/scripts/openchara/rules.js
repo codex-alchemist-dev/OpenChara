@@ -13,6 +13,8 @@ const DEFAULTS = {
     knockoutHp: 8,          // at/below this entity HP she's knocked out instead of dying
     knockoutSeconds: 30,    // how long a knocked-out character can't be re-summoned
     combatWindowSeconds: 5, // "in combat" = dealt or took damage this recently
+    cameraChunkMode: "anchor", // how camera modes keep chunks loaded: "anchor" (tick_world entity) or "teleport" (legacy)
+    buildArchiveDays: 30,   // how long an archived build schematic is kept before it is purged
 };
 
 export const RULES = { ...DEFAULTS, ...(CONFIG.rules ?? {}) };

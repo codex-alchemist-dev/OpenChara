@@ -73,7 +73,7 @@ export { openContainer, closeContainer, isContainerOpen, markerItem, giveBack } 
 export { openBag } from "./ui/bag.js";
 export {
     enterRts, exitRts, isInRts, getRtsInfo, registerRtsExitHook,
-    rtsSelectSquad, rtsNextFormation, rtsMove, rtsAttack, rtsSurround, rtsSummonHere,
+    rtsSelectSquad, rtsSelectUse, rtsNextFormation, rtsMove, rtsAttack, rtsSurround, rtsSummonHere, registerRtsActionFx,
 } from "./ui/rts.js";
 export { registerControlItem, setControlItems, clearControlItems } from "./ui/controlItems.js";
 export { registerLanguage, listLanguages, getPlayerLanguage, setPlayerLanguage, translate } from "./ui/i18n.js";
