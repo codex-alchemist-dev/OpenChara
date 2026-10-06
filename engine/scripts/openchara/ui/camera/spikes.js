@@ -9,9 +9,9 @@
 //   hold                 S2  report itemUse/itemStartUse/itemStopUse events seen on the held item for 20s
 //   ghosts [seconds]     S6  show every ghost-block texture in a row in front of you (plus a red mine cube) so a wrong
 //                            texture path (missing-texture checkerboard) or tint problem is obvious
-//   display <block id>   S7  show ONE block (any id, modded too) three ways at once, to find a way to render blocks the build
-//                            has no texture data for: a dropped item entity, an armor stand with the block on its head,
-//                            and the generic ghost cube. Removes them after 30s
+//   display <block id>   S7  show ONE block (any id, modded too) as an FMBE display fox (left) next to the generic ghost cube
+//                            (right) - FMBE is how blocks with no texture data are shown. Removes them after 30s
+//   fmbe [ypos scale xpos zpos entityY]  S7b show / set the FMBE display placement (then copy it into rule ghostFmbe)
 //   scroll               S5  list world events that look like hotbar/slot/scroll changes and report them for 20s
 //                            (a scroll signal would let Build mode's extend tools use the mouse wheel)
 //
@@ -20,7 +20,7 @@
 import { world, system, BlockTypes, ItemStack } from "@minecraft/server";
 import { ANCHOR_TYPE } from "./chunkAnchor.js";
 import { setRtsHudScreen, getRtsHudScreen, hudSpike } from "./rtsHud.js";
-import { createGhostLayer, releaseGhostLayer, ghostTextureIndex } from "../../build/ghostEntities.js";
+import { createGhostLayer, releaseGhostLayer, ghostTextureIndex, setGhostFmbe, getGhostFmbe } from "../../build/ghostEntities.js";
 import { GHOST_INDEX } from "../../build/ghostTable.generated.js";
 import { NS } from "../../ids.js";
 
@@ -121,24 +121,18 @@ function spikeDisplay(player, blockId) {
     if (!blockId || !blockId.includes(":")) { say(player, "usage: display <namespace:block_id>, e.g. display minecraft:grass_block"); return; }
     const dim = player.dimension;
     const here = player.location;
-    const at = dx => ({ x: Math.floor(here.x) + dx + 0.5, y: Math.floor(here.y), z: Math.floor(here.z) + 3.5 });
-    const made = [];
-    const attempt = (label, fn) => { try { made.push(fn()); say(player, `${label}: spawned`); } catch (e) { say(player, `${label}: failed (${e?.message ?? e})`); } };
-    attempt("1) item entity (left)", () => dim.spawnItem(new ItemStack(blockId, 1), at(-3)));
-    attempt("2) armor stand with the block on its head (middle)", () => {
-        const stand = dim.spawnEntity("minecraft:armor_stand", at(0));
-        stand.getComponent("minecraft:equippable").setEquipment("Head", new ItemStack(blockId, 1));
-        return stand;
-    });
-    attempt("3) generic ghost cube (right)", () => {
-        const layer = createGhostLayer(player);
-        const c = at(3);
-        layer.sync([{ x: Math.floor(c.x), y: Math.floor(c.y), z: Math.floor(c.z), op: "build", block: blockId }]);
-        made.push({ remove: () => releaseGhostLayer(player.id) });
-        return { remove() {} };
-    });
-    say(player, "Compare them: does 1) look like the real block (shape + textures)? Is 2) visible and sized like a block? Removing in 30s.");
-    system.runTimeout(() => { for (const e of made) { try { e.remove(); } catch (err) { /* fine */ } } say(player, "display test removed."); }, 600);
+    const at = dx => ({ x: Math.floor(here.x) + dx, y: Math.floor(here.y), z: Math.floor(here.z) + 3 });
+    const layerCube = createGhostLayer(player, { maxSpawn: 100 });
+    const fmbeLayer = createGhostLayer({ ...player, id: `${player.id}-display`, dimension: dim }, { maxSpawn: 100 });
+    // Left: FMBE fox (any block, real model). Right: our generic cube (unknown block) for comparison.
+    const left = at(-2), right = at(2);
+    try {
+        const f = fmbeLayer.sync([{ x: left.x, y: left.y, z: left.z, op: "build", block: blockId }]);
+        say(player, `FMBE fox (left): ${f.shown ? "spawned" : "did not spawn"} - ${blockId}`);
+    } catch (e) { say(player, `FMBE fox failed: ${e?.message ?? e}`); }
+    try { layerCube.sync([{ x: right.x, y: right.y, z: right.z, op: "build", block: "modded:not_in_any_source" }]); } catch (e) { /* fine */ }
+    say(player, `Does the left one look like the real block (right shape, right textures, sitting inside its cell, no fox body visible)? If it floats or sinks, use: /scriptevent ${NS}:spike fmbe <ypos> [scale] [xpos] [zpos] [entityY]. Removing in 30s.`);
+    system.runTimeout(() => { fmbeLayer.clear(); layerCube.clear(); releaseGhostLayer(player.id); say(player, "display test removed."); }, 600);
 }
 
 export function startCameraSpikes() {
@@ -147,7 +141,8 @@ export function startCameraSpikes() {
             if (ev.id !== `${NS}:spike`) return;
             const player = ev.sourceEntity;
             if (!player || player.typeId !== "minecraft:player") return;
-            const [name, a, b] = ev.message.trim().split(/\s+/);
+            const args = ev.message.trim().split(/\s+/);
+            const [name, a, b] = args;
             try {
                 if (name === "fov") spikeFov(player);
                 else if (name === "anchor") spikeAnchor(player, Number(a) || 192);
@@ -157,7 +152,13 @@ export function startCameraSpikes() {
                 else if (name === "scroll") spikeScroll(player);
                 else if (name === "ghosts") spikeGhosts(player, Number(a) || 30);
                 else if (name === "display") spikeDisplay(player, a);
-                else say(player, "spikes: fov | anchor [distance] | hud [seconds] | screen <w> <h> | hold | scroll | ghosts [seconds] | display <block id>");
+                else if (name === "fmbe") {
+                    const [ypos, scale, xpos, zpos, entityY] = [a, b, args[3], args[4], args[5]].map(v => (v === undefined ? undefined : Number(v)));
+                    const patch = Object.fromEntries(Object.entries({ ypos, scale, xpos, zpos, entityY }).filter(([, v]) => v !== undefined && !Number.isNaN(v)));
+                    if (Object.keys(patch).length) setGhostFmbe(patch);
+                    say(player, `FMBE placement ${JSON.stringify(getGhostFmbe())} (copy into rule ghostFmbe once the block fills its cell)`);
+                }
+                else say(player, "spikes: fov | anchor [distance] | hud [seconds] | screen <w> <h> | hold | scroll | ghosts [seconds] | display <block id> | fmbe [ypos scale xpos zpos entityY]");
             } catch (e) { say(player, `spike failed: ${e?.message ?? e}`); }
         });
     } catch (e) { /* older API */ }

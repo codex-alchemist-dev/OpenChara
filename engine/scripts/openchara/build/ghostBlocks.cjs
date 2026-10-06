@@ -45,6 +45,18 @@ function resolveGhostIndex(table, id) {
     return 0;
 }
 
+/**
+ * How a cell is drawn. "cube" = our textured/tinted ghost cube; "fmbe" = a vanilla fox holding the block's item, which
+ * the game itself renders with the block's real model and textures (any block, modded included; see ghostFmbe.cjs).
+ * Mine cells are always the red cube. `rule`: "cube" never uses FMBE, "fmbe" always does for build cells, "auto"
+ * (default) uses FMBE only for blocks the generated table does not know (texIndex 0).
+ */
+function chooseStyle(rule, { op, texIndex }) {
+    if (op === "mine" || rule === "cube") return "cube";
+    if (rule === "fmbe") return "fmbe";
+    return texIndex === 0 ? "fmbe" : "cube";
+}
+
 /** Vertical nudge so a cube scaled about its bottom stays centred in its cell. */
 const ghostYOffset = kind => (1 - GHOST_LOOK[kind].size) / 2;
 
@@ -61,7 +73,7 @@ function planGhostChanges(current, desired, { maxSpawn = 8, maxRemove = 24 } = {
     for (const [k, want] of desired) {
         const have = current.get(k);
         if (!have) { if (spawn.length < maxSpawn) spawn.push(k); }
-        else if (have.kind !== want.kind || have.tex !== want.tex) update.push(k);
+        else if (have.kind !== want.kind || have.tex !== want.tex || have.style !== want.style || have.block !== want.block) update.push(k);
     }
     for (const k of current.keys()) if (!desired.has(k) && remove.length < maxRemove) remove.push(k);
     return { spawn, update, remove };
@@ -76,4 +88,4 @@ function nearestCells(cells, center, cap) {
 }
 
 
-module.exports = { GHOST_KIND, GHOST_LOOK, ghostYOffset, blockIdCandidates, resolveGhostIndex, planGhostChanges, nearestCells };
+module.exports = { GHOST_KIND, GHOST_LOOK, ghostYOffset, blockIdCandidates, resolveGhostIndex, chooseStyle, planGhostChanges, nearestCells };
