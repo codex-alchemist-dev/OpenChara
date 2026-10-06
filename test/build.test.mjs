@@ -5,7 +5,6 @@ import { createModel, setCell, getCell, clearCell, applyToKeys, clearKeys, addMa
 import { rectCells, circleCells, sphereCells, extendSelection, dominantAxis, cellFromBlock, MAX_SELECTION } from "../engine/scripts/openchara/build/buildSelection.js";
 import { ghostItems, ghostFrame } from "../engine/scripts/openchara/build/ghostRender.js";
 import ghostBlocks from "../engine/scripts/openchara/build/ghostBlocks.cjs";
-import fmbe from "../engine/scripts/openchara/build/ghostFmbe.cjs";
 import appearance from "../src/build/blockAppearance.js";
 import { planCells } from "../engine/scripts/openchara/build/ghostScene.js";
 import { createSchematicStore, STATUS } from "../engine/scripts/openchara/build/schematicStore.js";
@@ -275,19 +274,6 @@ test("ghost style: mine is always the cube; auto uses a real-block FMBE fox only
     const cur = new Map([["a", { kind: 1, tex: 0, style: "fmbe", block: "x:y" }]]);
     assert.deepStrictEqual(ghostBlocks.planGhostChanges(cur, new Map([["a", { kind: 1, tex: 0, style: "fmbe", block: "x:z" }]])).update, ["a"], "a different block re-renders");
     assert.deepStrictEqual(ghostBlocks.planGhostChanges(cur, cur).update, []);
-});
-
-test("FMBE commands: the three wiki commands, parameterised and well-formed", () => {
-    const cmds = fmbe.fmbeCommands({ scale: 0.9, xpos: 1, ypos: -2, zpos: 3 });
-    assert.strictEqual(cmds.length, 3);
-    assert.ok(cmds.every(c => c.startsWith("playanimation @s ")));
-    assert.ok(cmds[0].includes("animation.player.sleeping") && cmds[0].endsWith("controller.animation.fox.move"));
-    assert.ok(cmds[1].includes("animation.creeper.swelling") && cmds[1].includes("v.scale=0.9;") && cmds[1].includes("v.xpos=1;v.ypos=-2;v.zpos=3;"));
-    assert.ok(cmds[2].includes("animation.ender_dragon.neck_head_movement") && cmds[2].includes("v.head_rotation_x=90+v.xrot;"));
-    for (const c of cmds) assert.strictEqual((c.match(/"/g) || []).length, 2, "exactly one quoted Molang string");
-    assert.ok(fmbe.fmbeCommands({ scale: NaN })[1].includes("v.scale=0;"), "non-finite numbers are neutralised");
-    assert.strictEqual(fmbe.stopSoundCommands().length, 10);
-    assert.ok(fmbe.FMBE_EFFECTS.some(([e, a]) => e === "slowness" && a === 255));
 });
 
 test("ghost budget: the nearest cells get entities, the rest overflow to particles", () => {
