@@ -22,15 +22,15 @@ import { createChunkAnchor } from "../ui/camera/chunkAnchor.js";
 import { freeFly, readInputs } from "../ui/camera/cameraRig.js";
 import { rectCells, circleCells, sphereCells, extendSelection, dominantAxis, cellFromBlock } from "./buildSelection.js";
 import { createModel, applyToKeys, clearKeys, addMarker, keyOf, parseKey, stats } from "./schematicModel.js";
-import { ghostItems, ghostFrame, drawGhosts, PARTICLES } from "./ghostRender.js";
+import { PARTICLES } from "./ghostRender.js";
+import { createGhostLayer, releaseGhostLayer } from "./ghostEntities.js";
+import { drawScene } from "./ghostScene.js";
 import { schematicsOf } from "./schematicDb.js";
 import { closeContainer } from "../ui/container.js";
 import { NS, TAG } from "../ids.js";
 
 const FACE = { Up: [0, 1, 0], Down: [0, -1, 0], North: [0, 0, -1], South: [0, 0, 1], East: [1, 0, 0], West: [-1, 0, 0] };
 const FX_EVERY = 4;
-const GHOST_RADIUS = 48;
-const GHOST_CAP = 120;
 const AUTOSAVE_TICKS = 20 * 30;
 const REACH = 96;
 
@@ -58,6 +58,7 @@ const session = createCameraSession({
         frame: 0,
         lastSave: 0,
         anchor: createChunkAnchor(player),
+        layer: createGhostLayer(player),
     }),
     onStart: (player, s) => {
         const wanted = pendingOpen.get(player.id);
@@ -68,7 +69,7 @@ const session = createCameraSession({
             else say(player, "§c[Build mode] That schematic couldn't be loaded - starting an empty one.");
         }
     },
-    onStop: (playerId, s) => { s?.anchor?.release(); },
+    onStop: (playerId, s) => { s?.anchor?.release(); releaseGhostLayer(playerId); },
     onTick: (player, s) => tick(player, s),
 });
 
@@ -144,8 +145,7 @@ function tick(player, s) {
 
 function draw(player, s) {
     s.frame++;
-    const items = ghostItems({ model: s.model, selection: s.selection, center: s.cam, radius: GHOST_RADIUS });
-    drawGhosts(player, ghostFrame(items, GHOST_CAP, s.frame));
+    drawScene({ player, layer: s.layer, model: s.model, selection: s.selection, center: s.cam, frame: s.frame });
     if (s.hit?.cell) {
         const c = s.hit.cell;
         for (const [dx, dz] of [[0.05, 0.05], [0.95, 0.05], [0.05, 0.95], [0.95, 0.95]]) {

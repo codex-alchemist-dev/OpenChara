@@ -107,7 +107,7 @@ function tick(player, s) {
         try {
             target = player.dimension.getEntitiesFromRay(origin, dir, { maxDistance: 160 })
                 .map(h => h.entity)
-                .find(e => e.isValid && e.typeId !== "minecraft:player" && e.typeId !== BODY && e.typeId !== `${NS}:container` && e.typeId !== `${NS}:camera_anchor` && e.typeId !== "minecraft:item") ?? null;
+                .find(e => e.isValid && e.typeId !== "minecraft:player" && e.typeId !== BODY && e.typeId !== `${NS}:container` && e.typeId !== `${NS}:camera_anchor` && e.typeId !== `${NS}:ghost_block` && e.typeId !== "minecraft:item") ?? null;
         } catch (e) { /* fine */ }
         s.target = target;
         if (system.currentTick % FX_EVERY === 0) drawFeedback(player, s, hit);

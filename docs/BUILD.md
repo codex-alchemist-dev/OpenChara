@@ -33,6 +33,16 @@ produce a **schematic**: block cells to build, block cells to mine, and chest ma
 look along), `mine`, `build` (+ `setBuildBlock`), `erase`, `markInput`, `markOutput`, `clearSelection`, `save`.
 Claude Waifus wires them to hotbar items in `PATCHES/scripts/buildControls.js` (sneak + use = the tool's alternate).
 
+### Ghost blocks
+
+Planned cells are drawn as real **ghost-block entities** (`<ns>:ghost_block`, `build/ghostEntities.js`), not particles:
+
+- **Build:** a cube textured with the block's own texture (`build/ghostBlocks.cjs` maps ~50 common vanilla blocks to their texture; anything else shows a generic tinted stone), slightly smaller than a block (0.9), light-blue tinted and semi-transparent.
+- **Mine:** a slightly larger (1.02) red translucent cube over the real block, so blocks to be mined glow red.
+- One entity type serves every block: the synced properties `ghost_tex` (texture index) and `ghost_kind` (build/mine) drive the render controller (generated from the table) and a client `scale` script.
+- Limits: the model is always a cube (stairs, slabs, fences show as full cubes); blocks with different face textures (grass, logs) show one face on every side; semi-transparency relies on `entity_alphablend` honouring the render-controller colour alpha (spike `ghosts` checks); **entities are visible to every player**, unlike particles.
+- Budget: the 220 nearest cells get entities (120 in the overlay), spawns are rate limited, the rest (and the selection and chest markers) are particles. Ghosts are removed on every exit path and orphans are swept at startup and chunk load.
+
 ### Persistence (all through MCLite)
 
 `build/schematicStore.js` never touches dynamic properties directly; it is given the MCLite API:
@@ -47,7 +57,7 @@ Claude Waifus wires them to hotbar items in `PATCHES/scripts/buildControls.js` (
 Lifecycle: `active` -> `complete()` -> `archived` (hidden); `trash()` -> `trashed` (restorable); `purge(id, {confirmed:true})`
 deletes for good and refuses without the confirmation; `sweep()` purges archived/trashed items older than the rule
 `buildArchiveDays` (default 30). The plan autosaves every 30 s and on every exit path. Schematics can be toggled visible
-(ghost-block particles, `schematicOverlay.js`) outside Build mode.
+(ghost blocks, `schematicOverlay.js`) outside Build mode.
 
 ## In-game spikes
 
@@ -58,6 +68,7 @@ Run `/scriptevent <ns>:spike <name>`; each prints what it found to chat.
 | `fov` | does the camera API let us set the FOV? | assumed FOV in `DEFAULT_CURSOR_CONFIG`, calibration via `screen` |
 | `anchor [distance]` | does a `tick_world` entity keep a far chunk loaded? | `cameraChunkMode: "teleport"` |
 | `hud [seconds]` / `screen <w> <h>` | does the fast HUD draw and track? calibrate GUI size | keep the particle cursor (`rtsHudCursor: false`) |
+| `ghosts [seconds]` | do all ghost textures resolve (no missing-texture checkerboard), is the tint/transparency right? | edit the paths in `ghostBlocks.cjs`; if alpha is ignored, ghosts are opaque but still readable |
 | `hold` | which use events fire for the held item | two-click select needs only `itemUse` |
 | `scroll` | is there any hotbar-slot / scroll event (mouse-wheel extend in Build mode)? | extend tools stay hotbar items |
 

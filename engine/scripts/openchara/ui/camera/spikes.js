@@ -7,6 +7,8 @@
 //   hud [seconds]        S3  draw the fast-HUD cursor moving in a circle for N seconds (default 15), outside RTS
 //   screen <w> <h>       S3  set this player's HUD screen size in GUI pixels (cursor/box calibration)
 //   hold                 S2  report itemUse/itemStartUse/itemStopUse events seen on the held item for 20s
+//   ghosts [seconds]     S6  show every ghost-block texture in a row in front of you (plus a red mine cube) so a wrong
+//                            texture path (missing-texture checkerboard) or tint problem is obvious
 //   scroll               S5  list world events that look like hotbar/slot/scroll changes and report them for 20s
 //                            (a scroll signal would let Build mode's extend tools use the mouse wheel)
 //
@@ -15,6 +17,8 @@
 import { world, system } from "@minecraft/server";
 import { ANCHOR_TYPE } from "./chunkAnchor.js";
 import { setRtsHudScreen, getRtsHudScreen, hudSpike } from "./rtsHud.js";
+import { createGhostLayer, releaseGhostLayer } from "../../build/ghostEntities.js";
+import { GHOST_BLOCKS } from "../../build/ghostBlocks.cjs";
 import { NS } from "../../ids.js";
 
 const say = (p, m) => { try { p.sendMessage(`§e[spike] §r${m}`); } catch (e) { /* offline */ } };
@@ -89,6 +93,18 @@ function spikeScroll(player) {
     }, 400);
 }
 
+function spikeGhosts(player, seconds) {
+    const layer = createGhostLayer(player, { maxSpawn: 100 });
+    const base = { x: Math.floor(player.location.x), y: Math.floor(player.location.y), z: Math.floor(player.location.z) + 3 };
+    const perRow = 12;
+    const cells = GHOST_BLOCKS.map(([block], i) => ({ x: base.x + (i % perRow) * 2, y: base.y + Math.floor(i / perRow) * 2, z: base.z, op: "build", block }));
+    cells.push({ x: base.x, y: base.y - 2, z: base.z, op: "mine" });
+    layer.sync(cells);
+    say(player, `${cells.length} ghost cubes placed 3 blocks in front of you (${GHOST_BLOCKS.length} block textures + one red mine cube). Check for missing-texture checkerboards, tint and transparency. Removing in ${seconds}s.`);
+    const tick = system.runInterval(() => { try { layer.sync(cells); } catch (e) { /* fine */ } }, 10);
+    system.runTimeout(() => { system.clearRun(tick); releaseGhostLayer(player.id); say(player, "ghost cubes removed."); }, seconds * 20);
+}
+
 export function startCameraSpikes() {
     try {
         system.afterEvents.scriptEventReceive.subscribe(ev => {
@@ -103,7 +119,8 @@ export function startCameraSpikes() {
                 else if (name === "screen") { setRtsHudScreen(player, Number(a), Number(b)); say(player, `HUD screen set to ${a}x${b}`); }
                 else if (name === "hold") spikeHold(player);
                 else if (name === "scroll") spikeScroll(player);
-                else say(player, "spikes: fov | anchor [distance] | hud [seconds] | screen <w> <h> | hold | scroll");
+                else if (name === "ghosts") spikeGhosts(player, Number(a) || 30);
+                else say(player, "spikes: fov | anchor [distance] | hud [seconds] | screen <w> <h> | hold | scroll | ghosts [seconds]");
             } catch (e) { say(player, `spike failed: ${e?.message ?? e}`); }
         });
     } catch (e) { /* older API */ }

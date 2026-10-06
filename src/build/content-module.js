@@ -5,6 +5,7 @@
 const path = require("path");
 const { loadProjectContent } = require("./project.js");
 const { walk } = require("./content.js");
+const { ghostRenderController } = require("../../engine/scripts/openchara/build/ghostBlocks.cjs");
 
 module.exports = ctx => {
     const { p, content } = loadProjectContent(ctx.mod, ctx.modDir);
@@ -57,6 +58,8 @@ module.exports = ctx => {
             },
         },
     }, null, 2) + "\n";
+
+    rp[`render_controllers/ghost_block.render_controllers.json`] = JSON.stringify(ghostRenderController(p.namespace), null, 2) + "\n";
 
     return { source, rp };
 };

@@ -2,6 +2,7 @@
 "use strict";
 
 const { loadProjectContent, nounVars } = require("./project.js");
+const { ghostTextureMap, GHOST_BLOCKS } = require("../../engine/scripts/openchara/build/ghostBlocks.cjs");
 
 module.exports = ctx => {
     const { p, content } = loadProjectContent(ctx.mod, ctx.modDir);
@@ -15,5 +16,7 @@ module.exports = ctx => {
         characterTextures,
         characterGeometry: p.character.geometry,
         characterMaterial: p.character.material,
+        ghostTextures: ghostTextureMap(),
+        ghostTextureCount: GHOST_BLOCKS.length,
     };
 };

@@ -4,6 +4,8 @@ import { createRequire } from "node:module";
 import { createModel, setCell, getCell, clearCell, applyToKeys, clearKeys, addMarker, removeMarkerAt, bounds, stats, encode, decode, keyOf, MAX_MARKERS } from "../engine/scripts/openchara/build/schematicModel.js";
 import { rectCells, circleCells, sphereCells, extendSelection, dominantAxis, cellFromBlock, MAX_SELECTION } from "../engine/scripts/openchara/build/buildSelection.js";
 import { ghostItems, ghostFrame } from "../engine/scripts/openchara/build/ghostRender.js";
+import ghostBlocks from "../engine/scripts/openchara/build/ghostBlocks.cjs";
+import { planCells } from "../engine/scripts/openchara/build/ghostScene.js";
 import { createSchematicStore, STATUS } from "../engine/scripts/openchara/build/schematicStore.js";
 
 const require = createRequire(import.meta.url);
@@ -246,6 +248,59 @@ test("ghost: a rotating window covers every item over a few frames and never exc
     const seen = new Set();
     for (let f = 0; f < 4; f++) { const w = ghostFrame(items, 3, f); assert.strictEqual(w.length, 3); w.forEach(i => seen.add(i.x)); }
     assert.strictEqual(seen.size, 10);
+});
+
+test("ghost table: unique ids, a texture per block, indices stable, unknown blocks fall back to 0", () => {
+    const { GHOST_BLOCKS, ghostTextureIndex, hasGhostTexture, ghostTextureMap } = ghostBlocks;
+    assert.strictEqual(new Set(GHOST_BLOCKS.map(b => b[0])).size, GHOST_BLOCKS.length);
+    assert.ok(GHOST_BLOCKS.every(([id, tex]) => id.startsWith("minecraft:") && tex.startsWith("textures/blocks/")));
+    assert.strictEqual(ghostTextureIndex("minecraft:stone"), 0);
+    assert.strictEqual(ghostTextureIndex("minecraft:oak_planks"), GHOST_BLOCKS.findIndex(b => b[0] === "minecraft:oak_planks"));
+    assert.strictEqual(ghostTextureIndex("modded:thing"), 0);
+    assert.ok(hasGhostTexture("minecraft:glass") && !hasGhostTexture("modded:thing"));
+    const map = ghostTextureMap();
+    assert.strictEqual(Object.keys(map).length, GHOST_BLOCKS.length + 1);
+    assert.strictEqual(map.t0, "textures/blocks/stone");
+    assert.ok(map.mine);
+});
+
+test("ghost render controller: texture array covers every block, mine kind is red and translucent, build kind light blue", () => {
+    const rc = ghostBlocks.ghostRenderController("cw");
+    const c = rc.render_controllers["controller.render.cw_ghost_block"];
+    assert.strictEqual(c.arrays.textures["Array.cw_ghost_tex"].length, ghostBlocks.GHOST_BLOCKS.length);
+    assert.ok(c.textures[0].includes("Texture.mine") && c.textures[0].includes("query.property('cw:ghost_tex')"));
+    assert.ok(c.color.a.includes("0.5") && c.color.a.includes("0.55"));
+    assert.ok(ghostBlocks.GHOST_LOOK[0].tint[0] === 1 && ghostBlocks.GHOST_LOOK[0].tint[1] < 0.2, "mine is red");
+    assert.ok(ghostBlocks.GHOST_LOOK[1].size < 1 && ghostBlocks.GHOST_LOOK[0].size > 1, "build ghost is smaller than a block, mine highlight slightly larger");
+    assert.ok(Math.abs(ghostBlocks.ghostYOffset(1) - 0.05) < 1e-9 && ghostBlocks.ghostYOffset(0) < 0);
+});
+
+test("ghost planning: spawns/removes respect per-tick limits, updates changed looks, leaves unchanged cells alone", () => {
+    const cur = new Map([["a", { kind: 1, tex: 2 }], ["b", { kind: 1, tex: 2 }], ["gone1", { kind: 1, tex: 0 }], ["gone2", { kind: 1, tex: 0 }]]);
+    const want = new Map([["a", { kind: 1, tex: 2 }], ["b", { kind: 0, tex: 0 }], ["n1", { kind: 1, tex: 1 }], ["n2", { kind: 1, tex: 1 }], ["n3", { kind: 1, tex: 1 }]]);
+    const plan = ghostBlocks.planGhostChanges(cur, want, { maxSpawn: 2, maxRemove: 1 });
+    assert.deepStrictEqual(plan.update, ["b"]);
+    assert.deepStrictEqual(plan.spawn, ["n1", "n2"]);
+    assert.strictEqual(plan.remove.length, 1);
+    const none = ghostBlocks.planGhostChanges(want, want);
+    assert.deepStrictEqual([none.spawn, none.update, none.remove], [[], [], []]);
+});
+
+test("ghost budget: the nearest cells get entities, the rest overflow to particles", () => {
+    const cells = [{ x: 30, y: 0, z: 0 }, { x: 1, y: 0, z: 0 }, { x: 10, y: 0, z: 0 }, { x: 2, y: 0, z: 0 }];
+    const { shown, overflow } = ghostBlocks.nearestCells(cells, { x: 0, y: 0, z: 0 }, 2);
+    assert.deepStrictEqual(shown.map(c => c.x), [1, 2]);
+    assert.deepStrictEqual(overflow.map(c => c.x), [10, 30]);
+    assert.strictEqual(ghostBlocks.nearestCells(cells, { x: 0, y: 0, z: 0 }, 10).overflow.length, 0);
+});
+
+test("scene: planCells lists build and mine cells in range with their block", () => {
+    const m = createModel();
+    setCell(m, 1, 0, 0, { op: "build", block: "minecraft:glass" });
+    setCell(m, 2, 0, 0, { op: "mine" });
+    setCell(m, 300, 0, 0, { op: "build", block: "minecraft:stone" });
+    const cells = planCells(m, { x: 0, y: 0, z: 0 }, 40);
+    assert.deepStrictEqual(cells.map(c => [c.x, c.op, c.block]).sort(), [[1, "build", "minecraft:glass"], [2, "mine", undefined]]);
 });
 
 console.log(`\n${passed} passed${process.exitCode ? ", with failures" : ""}`);
