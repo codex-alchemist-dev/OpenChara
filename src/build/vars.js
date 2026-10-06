@@ -2,10 +2,11 @@
 "use strict";
 
 const { loadProjectContent, nounVars } = require("./project.js");
-const { ghostTextureMap, GHOST_BLOCKS } = require("../../engine/scripts/openchara/build/ghostBlocks.cjs");
+const { loadAppearance, textureMap } = require("./blockAppearance.js");
 
 module.exports = ctx => {
     const { p, content } = loadProjectContent(ctx.mod, ctx.modDir);
+    const appearance = loadAppearance({ modDir: ctx.modDir, packages: ctx.packages, extraDirs: ctx.mod.openchara?.ghostSources ?? [] });
     const characters = Object.values(content.characters).sort((a, b) => a.index - b.index);
     const characterTextures = {};
     for (const c of characters) characterTextures[`species${c.index}`] = c.texture;
@@ -16,7 +17,7 @@ module.exports = ctx => {
         characterTextures,
         characterGeometry: p.character.geometry,
         characterMaterial: p.character.material,
-        ghostTextures: ghostTextureMap(),
-        ghostTextureCount: GHOST_BLOCKS.length,
+        ghostTextures: textureMap(appearance),
+        ghostBlockCount: appearance.blocks.length + 1, // + the generic fallback at index 0
     };
 };

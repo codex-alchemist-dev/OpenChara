@@ -5,6 +5,7 @@ import { createModel, setCell, getCell, clearCell, applyToKeys, clearKeys, addMa
 import { rectCells, circleCells, sphereCells, extendSelection, dominantAxis, cellFromBlock, MAX_SELECTION } from "../engine/scripts/openchara/build/buildSelection.js";
 import { ghostItems, ghostFrame } from "../engine/scripts/openchara/build/ghostRender.js";
 import ghostBlocks from "../engine/scripts/openchara/build/ghostBlocks.cjs";
+import appearance from "../src/build/blockAppearance.js";
 import { planCells } from "../engine/scripts/openchara/build/ghostScene.js";
 import { createSchematicStore, STATUS } from "../engine/scripts/openchara/build/schematicStore.js";
 
@@ -13,9 +14,11 @@ const mclite = require("../../MCLite/src/index.js");
 const { createMockOwner } = require("../../MCLite/test/mockOwner.js");
 
 let passed = 0;
+const pending = [];
 function test(name, fn) {
-    try { fn(); passed++; console.log(`ok - ${name}`); }
-    catch (e) { console.error(`FAIL - ${name}`); console.error(e); process.exitCode = 1; }
+    const done = () => { passed++; console.log(`ok - ${name}`); };
+    const fail = e => { console.error(`FAIL - ${name}`); console.error(e); process.exitCode = 1; };
+    try { const r = fn(); if (r && typeof r.then === "function") pending.push(r.then(done, fail)); else done(); } catch (e) { fail(e); }
 }
 
 // ---- model ----------------------------------------------------------------------------------
@@ -250,31 +253,6 @@ test("ghost: a rotating window covers every item over a few frames and never exc
     assert.strictEqual(seen.size, 10);
 });
 
-test("ghost table: unique ids, a texture per block, indices stable, unknown blocks fall back to 0", () => {
-    const { GHOST_BLOCKS, ghostTextureIndex, hasGhostTexture, ghostTextureMap } = ghostBlocks;
-    assert.strictEqual(new Set(GHOST_BLOCKS.map(b => b[0])).size, GHOST_BLOCKS.length);
-    assert.ok(GHOST_BLOCKS.every(([id, tex]) => id.startsWith("minecraft:") && tex.startsWith("textures/blocks/")));
-    assert.strictEqual(ghostTextureIndex("minecraft:stone"), 0);
-    assert.strictEqual(ghostTextureIndex("minecraft:oak_planks"), GHOST_BLOCKS.findIndex(b => b[0] === "minecraft:oak_planks"));
-    assert.strictEqual(ghostTextureIndex("modded:thing"), 0);
-    assert.ok(hasGhostTexture("minecraft:glass") && !hasGhostTexture("modded:thing"));
-    const map = ghostTextureMap();
-    assert.strictEqual(Object.keys(map).length, GHOST_BLOCKS.length + 1);
-    assert.strictEqual(map.t0, "textures/blocks/stone");
-    assert.ok(map.mine);
-});
-
-test("ghost render controller: texture array covers every block, mine kind is red and translucent, build kind light blue", () => {
-    const rc = ghostBlocks.ghostRenderController("cw");
-    const c = rc.render_controllers["controller.render.cw_ghost_block"];
-    assert.strictEqual(c.arrays.textures["Array.cw_ghost_tex"].length, ghostBlocks.GHOST_BLOCKS.length);
-    assert.ok(c.textures[0].includes("Texture.mine") && c.textures[0].includes("query.property('cw:ghost_tex')"));
-    assert.ok(c.color.a.includes("0.5") && c.color.a.includes("0.55"));
-    assert.ok(ghostBlocks.GHOST_LOOK[0].tint[0] === 1 && ghostBlocks.GHOST_LOOK[0].tint[1] < 0.2, "mine is red");
-    assert.ok(ghostBlocks.GHOST_LOOK[1].size < 1 && ghostBlocks.GHOST_LOOK[0].size > 1, "build ghost is smaller than a block, mine highlight slightly larger");
-    assert.ok(Math.abs(ghostBlocks.ghostYOffset(1) - 0.05) < 1e-9 && ghostBlocks.ghostYOffset(0) < 0);
-});
-
 test("ghost planning: spawns/removes respect per-tick limits, updates changed looks, leaves unchanged cells alone", () => {
     const cur = new Map([["a", { kind: 1, tex: 2 }], ["b", { kind: 1, tex: 2 }], ["gone1", { kind: 1, tex: 0 }], ["gone2", { kind: 1, tex: 0 }]]);
     const want = new Map([["a", { kind: 1, tex: 2 }], ["b", { kind: 0, tex: 0 }], ["n1", { kind: 1, tex: 1 }], ["n2", { kind: 1, tex: 1 }], ["n3", { kind: 1, tex: 1 }]]);
@@ -301,6 +279,102 @@ test("scene: planCells lists build and mine cells in range with their block", ()
     setCell(m, 300, 0, 0, { op: "build", block: "minecraft:stone" });
     const cells = planCells(m, { x: 0, y: 0, z: 0 }, 40);
     assert.deepStrictEqual(cells.map(c => [c.x, c.op, c.block]).sort(), [[1, "build", "minecraft:glass"], [2, "mine", undefined]]);
+});
+
+// ---- generated block appearance (no hand-typed block list) --------------------------------------
+const VANILLA_BLOCKS = {
+    format_version: [1, 1, 0],
+    air: {},
+    stone: { textures: "stone" },
+    grass: { textures: { up: "grass_top", down: "grass_bottom", side: "grass_side" } },
+    brick_block: { textures: "brick" },
+    pillar: { textures: { north: "pillar_side" } },
+    flower: { sound: "grass" },
+};
+const VANILLA_TERRAIN = {
+    texture_data: {
+        stone: { textures: "textures/blocks/stone" },
+        grass_top: { textures: ["textures/blocks/grass_top", "textures/blocks/grass_top_2"] },
+        grass_side: { textures: { path: "textures/blocks/grass_side" } },
+        brick: { textures: "textures/blocks/brick" },
+    },
+};
+
+test("appearance: blocks.json parses string/object/north-only textures and skips blocks without textures", () => {
+    const m = appearance.parseBlocksJson(VANILLA_BLOCKS);
+    assert.deepStrictEqual([...m.keys()].sort(), ["minecraft:brick_block", "minecraft:grass", "minecraft:pillar", "minecraft:stone"]);
+    assert.deepStrictEqual(m.get("minecraft:grass"), { side: "grass_side", up: "grass_top", down: "grass_bottom" });
+    assert.deepStrictEqual(m.get("minecraft:stone"), { side: "stone", up: "stone", down: "stone" });
+    assert.strictEqual(m.get("minecraft:pillar").side, "pillar_side");
+});
+
+test("appearance: terrain_texture.json takes the first variation / object path; unknown keys fall back to textures/blocks/<key>", () => {
+    const t = appearance.parseTerrainTextures(VANILLA_TERRAIN);
+    assert.strictEqual(t.get("grass_top"), "textures/blocks/grass_top");
+    assert.strictEqual(t.get("grass_side"), "textures/blocks/grass_side");
+    const a = appearance.buildAppearance([{ blocks: VANILLA_BLOCKS, terrain: VANILLA_TERRAIN }]);
+    const grass = a.blocks.find(b => b.id === "minecraft:grass");
+    assert.deepStrictEqual([grass.side, grass.up, grass.down], ["textures/blocks/grass_side", "textures/blocks/grass_top", "textures/blocks/grass_bottom"]);
+    assert.strictEqual(a.blocks.find(b => b.id === "minecraft:pillar").side, "textures/blocks/pillar_side");
+});
+
+test("appearance: later sources (your packs, modded blocks) override and extend the vanilla data; textures are de-duplicated, fallback first", () => {
+    const mod = { blocks: { "mymod:crystal": { textures: "crystal" }, stone: { textures: "my_stone" } }, terrain: { texture_data: { crystal: { textures: "textures/blocks/crystal" }, my_stone: { textures: "textures/blocks/my_stone" } } } };
+    const a = appearance.buildAppearance([{ blocks: VANILLA_BLOCKS, terrain: VANILLA_TERRAIN }, mod]);
+    assert.strictEqual(a.textures[0], appearance.FALLBACK_TEXTURE);
+    assert.strictEqual(new Set(a.textures).size, a.textures.length);
+    assert.strictEqual(a.blocks.find(b => b.id === "minecraft:stone").side, "textures/blocks/my_stone");
+    assert.strictEqual(a.blocks.find(b => b.id === "mymod:crystal").side, "textures/blocks/crystal");
+    const table = appearance.indexTable(a);
+    assert.ok(Object.values(table).every(i => i >= 1) && table["mymod:crystal"] >= 1);
+    const arrays = appearance.faceArrays(a);
+    for (const list of Object.values(arrays)) assert.strictEqual(list.length, a.blocks.length + 1);
+    assert.strictEqual(arrays.side[0], "Texture.u0");
+    const g = table["minecraft:grass"];
+    assert.notStrictEqual(arrays.top[g], arrays.side[g], "grass has a different top and side texture");
+    const map = appearance.textureMap(a);
+    assert.strictEqual(map.mine, appearance.MINE_TEXTURE);
+    assert.strictEqual(Object.keys(map).length, a.textures.length + 1);
+});
+
+test("render controller: three face materials with parallel textures, mine is red, build is light blue", () => {
+    const a = appearance.buildAppearance([{ blocks: VANILLA_BLOCKS, terrain: VANILLA_TERRAIN }]);
+    const look = { ...ghostBlocks.GHOST_KIND, tint: { 0: ghostBlocks.GHOST_LOOK[0].tint, 1: ghostBlocks.GHOST_LOOK[1].tint } };
+    const rc = appearance.ghostRenderController("cw", a, look).render_controllers["controller.render.cw_ghost_block"];
+    assert.deepStrictEqual(rc.materials.map(m => Object.keys(m)[0]), ["side", "top", "bottom"]);
+    assert.strictEqual(rc.textures.length, 3);
+    assert.ok(rc.textures.every(t => t.includes("Texture.mine") && t.includes("query.property('cw:ghost_tex')")));
+    assert.deepStrictEqual(Object.keys(rc.arrays.textures).sort(), ["Array.cw_ghost_bottom", "Array.cw_ghost_side", "Array.cw_ghost_top"]);
+    assert.ok(rc.color.a.includes("0.5") && rc.color.a.includes("0.55") && ghostBlocks.GHOST_LOOK[0].tint[0] === 1 && ghostBlocks.GHOST_LOOK[0].tint[1] < 0.2);
+    assert.ok(ghostBlocks.GHOST_LOOK[1].size < 1 && ghostBlocks.GHOST_LOOK[0].size > 1);
+    assert.ok(Math.abs(ghostBlocks.ghostYOffset(1) - 0.05) < 1e-9 && ghostBlocks.ghostYOffset(0) < 0);
+});
+
+test("lookup tolerates legacy spellings generically (_block, plurals) and falls back to 0 for unknown blocks", () => {
+    const table = { "minecraft:grass": 5, "minecraft:brick_block": 9, "minecraft:stone": 2, "mymod:crystal": 11 };
+    const r = id => ghostBlocks.resolveGhostIndex(table, id);
+    assert.strictEqual(r("minecraft:stone"), 2);
+    assert.strictEqual(r("minecraft:grass_block"), 5);
+    assert.strictEqual(r("minecraft:bricks"), 9);
+    assert.strictEqual(r("mymod:crystal"), 11);
+    assert.strictEqual(r("mymod:unknown"), 0);
+    assert.deepStrictEqual(ghostBlocks.blockIdCandidates("minecraft:bricks").slice(0, 3), ["minecraft:bricks", "minecraft:bricks_block", "minecraft:brick"]);
+});
+
+test("loadAppearance reads vanilla data (env), every package's resource overlay and extra source folders", async () => {
+    const fs = await import("node:fs"), os = await import("node:os"), path = await import("node:path");
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "ghost-"));
+    const w = (rel, obj) => { const f = path.join(tmp, rel); fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, JSON.stringify(obj)); };
+    w("vanilla/blocks.json", VANILLA_BLOCKS); w("vanilla/textures/terrain_texture.json", VANILLA_TERRAIN);
+    w("addon/rp/blocks.json", { "addon:gem": { textures: "gem" } }); w("addon/rp/textures/terrain_texture.json", { texture_data: { gem: { textures: "textures/blocks/gem" } } });
+    w("extra/blocks.json", { "other:ore": { textures: "ore" } });
+    const a = appearance.loadAppearance({
+        modDir: tmp, env: { OPENROCK_VANILLA_RP: path.join(tmp, "vanilla") }, log: () => {},
+        packages: [{ manifest: { content: { rpOverlayDir: "rp" } }, dir: path.join(tmp, "addon") }, { manifest: { content: {} }, dir: tmp }],
+        extraDirs: ["extra"],
+    });
+    assert.deepStrictEqual(a.blocks.map(b => b.id).sort(), ["addon:gem", "minecraft:brick_block", "minecraft:grass", "minecraft:pillar", "minecraft:stone", "other:ore"]);
+    fs.rmSync(tmp, { recursive: true, force: true });
 });
 
 console.log(`\n${passed} passed${process.exitCode ? ", with failures" : ""}`);

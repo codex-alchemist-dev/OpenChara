@@ -1,8 +1,8 @@
 import * as OpenRockEntity from "@openrock/entity-dsl/jsx-runtime";
 import { vars, Entity, RawComponent } from "@openrock/entity-dsl";
 
-// One cube entity that can look like any block in the ghost table (build/ghostBlocks.js): the synced property
-// `ghost_tex` picks the texture, `ghost_kind` picks build (small, light blue, translucent) or mine (slightly large,
+// One cube entity that can look like any block in the generated appearance table (src/build/blockAppearance.js): the
+// synced property `ghost_tex` picks the block's side/top/bottom textures, `ghost_kind` picks build (small, light blue, translucent) or mine (slightly large,
 // red, translucent). Visible to every player - see build/ghostBlocks.js for the limits.
 const V = vars();
 export default (
@@ -10,7 +10,7 @@ export default (
         formatVersion="1.21.10"
         properties={{
             "{{ns}}:ghost_kind": { type: "int", range: [0, 1], default: 1, client_sync: true },
-            "{{ns}}:ghost_tex": { type: "int", range: [0, V.ghostTextureCount - 1], default: 0, client_sync: true },
+            "{{ns}}:ghost_tex": { type: "int", range: [0, V.ghostBlockCount - 1], default: 0, client_sync: true },
         }}
         clientFormatVersion="1.10.0"
         materials={{ default: "entity_alphablend" }}

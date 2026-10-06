@@ -5,7 +5,8 @@
 const path = require("path");
 const { loadProjectContent } = require("./project.js");
 const { walk } = require("./content.js");
-const { ghostRenderController } = require("../../engine/scripts/openchara/build/ghostBlocks.cjs");
+const { loadAppearance, ghostRenderController } = require("./blockAppearance.js");
+const { GHOST_KIND, GHOST_LOOK } = require("../../engine/scripts/openchara/build/ghostBlocks.cjs");
 
 module.exports = ctx => {
     const { p, content } = loadProjectContent(ctx.mod, ctx.modDir);
@@ -59,7 +60,7 @@ module.exports = ctx => {
         },
     }, null, 2) + "\n";
 
-    rp[`render_controllers/ghost_block.render_controllers.json`] = JSON.stringify(ghostRenderController(p.namespace), null, 2) + "\n";
+    rp[`render_controllers/ghost_block.render_controllers.json`] = JSON.stringify(ghostRenderController(p.namespace, loadAppearance({ modDir: ctx.modDir, packages: ctx.packages, extraDirs: ctx.mod.openchara?.ghostSources ?? [] }), { ...GHOST_KIND, tint: { [GHOST_KIND.MINE]: GHOST_LOOK[GHOST_KIND.MINE].tint, [GHOST_KIND.BUILD]: GHOST_LOOK[GHOST_KIND.BUILD].tint } }), null, 2) + "\n";
 
     return { source, rp };
 };

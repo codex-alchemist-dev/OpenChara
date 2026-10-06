@@ -6,7 +6,8 @@
 // /reload mid-build) are swept on startup and whenever their chunk loads.
 
 import { world, system } from "@minecraft/server";
-import { GHOST_KIND, ghostTextureIndex, ghostYOffset, planGhostChanges } from "./ghostBlocks.cjs";
+import { GHOST_KIND, ghostYOffset, planGhostChanges, resolveGhostIndex } from "./ghostBlocks.cjs";
+import { GHOST_INDEX } from "./ghostTable.generated.js";
 import { NS, TAG } from "../ids.js";
 
 export const GHOST_TYPE = `${NS}:ghost_block`;
@@ -16,6 +17,8 @@ const P_TEX = `${NS}:ghost_tex`;
 
 const layers = new Map(); // playerId -> layer
 const cellKey = c => `${c.x},${c.y},${c.z}`;
+/** ghost_tex for a block id: its generated appearance index, or 0 (generic) when no source knew the block. */
+export const ghostTextureIndex = blockId => resolveGhostIndex(GHOST_INDEX, blockId);
 
 function place(e, c, kind, tex) {
     try { e.setProperty(P_KIND, kind); e.setProperty(P_TEX, tex); } catch (err) { console.warn(`[${TAG}] ghost property: ${err}`); }

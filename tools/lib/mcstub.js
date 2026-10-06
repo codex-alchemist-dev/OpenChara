@@ -61,6 +61,7 @@ export class ItemStack {
 export const InputPermissionCategory = { Camera: 1, Movement: 2 };
 export const ItemLockMode = { inventory: "inventory", none: "none", slot: "slot" };
 export const EquipmentSlot = { Head: "Head", Chest: "Chest", Legs: "Legs", Feet: "Feet", Mainhand: "Mainhand", Offhand: "Offhand" };
+export const BlockTypes = { getAll: () => [] };
 export const InputButton = { Jump: "Jump", Sneak: "Sneak" };
 export const ButtonState = { Pressed: "Pressed", Released: "Released" };
 

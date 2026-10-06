@@ -14,11 +14,11 @@
 //
 // Everything is opt-in and removes what it spawned.
 
-import { world, system } from "@minecraft/server";
+import { world, system, BlockTypes } from "@minecraft/server";
 import { ANCHOR_TYPE } from "./chunkAnchor.js";
 import { setRtsHudScreen, getRtsHudScreen, hudSpike } from "./rtsHud.js";
-import { createGhostLayer, releaseGhostLayer } from "../../build/ghostEntities.js";
-import { GHOST_BLOCKS } from "../../build/ghostBlocks.cjs";
+import { createGhostLayer, releaseGhostLayer, ghostTextureIndex } from "../../build/ghostEntities.js";
+import { GHOST_INDEX } from "../../build/ghostTable.generated.js";
 import { NS } from "../../ids.js";
 
 const say = (p, m) => { try { p.sendMessage(`§e[spike] §r${m}`); } catch (e) { /* offline */ } };
@@ -97,10 +97,19 @@ function spikeGhosts(player, seconds) {
     const layer = createGhostLayer(player, { maxSpawn: 100 });
     const base = { x: Math.floor(player.location.x), y: Math.floor(player.location.y), z: Math.floor(player.location.z) + 3 };
     const perRow = 12;
-    const cells = GHOST_BLOCKS.map(([block], i) => ({ x: base.x + (i % perRow) * 2, y: base.y + Math.floor(i / perRow) * 2, z: base.z, op: "build", block }));
-    cells.push({ x: base.x, y: base.y - 2, z: base.z, op: "mine" });
+    // A spread of real blocks from the generated table (every Nth, up to 60), one unknown block (generic fallback) and a mine cube.
+    const ids = Object.keys(GHOST_INDEX);
+    const step = Math.max(1, Math.floor(ids.length / 60));
+    const sample = ids.filter((_, i) => i % step === 0).slice(0, 60);
+    const cells = sample.map((block, i) => ({ x: base.x + (i % perRow) * 2, y: base.y + Math.floor(i / perRow) * 2, z: base.z, op: "build", block }));
+    cells.push({ x: base.x, y: base.y - 2, z: base.z, op: "build", block: "modded:not_in_any_source" });
+    cells.push({ x: base.x + 2, y: base.y - 2, z: base.z, op: "mine" });
     layer.sync(cells);
-    say(player, `${cells.length} ghost cubes placed 3 blocks in front of you (${GHOST_BLOCKS.length} block textures + one red mine cube). Check for missing-texture checkerboards, tint and transparency. Removing in ${seconds}s.`);
+    // Which real block ids in this game have no appearance (so would show as the generic ghost)? Needs BlockTypes.
+    let missing = [];
+    try { missing = BlockTypes.getAll().map(t => t.id).filter(id => ghostTextureIndex(id) === 0 && id !== "minecraft:stone"); } catch (e) { /* older API */ }
+    say(player, `${missing.length} block ids in this game have no appearance${missing.length ? `, e.g. ${missing.slice(0, 25).join(", ")}` : ""}.`);
+    say(player, `${ids.length} blocks are in the ghost table. Placed ${cells.length} ghost cubes 3 blocks in front of you: ${sample.length} sampled blocks, then (front-left) one block that is in no source (generic fallback) and a red mine cube. Look for missing-texture checkerboards, wrong faces (grass top/side), tint and transparency. Removing in ${seconds}s.`);
     const tick = system.runInterval(() => { try { layer.sync(cells); } catch (e) { /* fine */ } }, 10);
     system.runTimeout(() => { system.clearRun(tick); releaseGhostLayer(player.id); say(player, "ghost cubes removed."); }, seconds * 20);
 }

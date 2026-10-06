@@ -37,11 +37,12 @@ Claude Waifus wires them to hotbar items in `PATCHES/scripts/buildControls.js` (
 
 Planned cells are drawn as real **ghost-block entities** (`<ns>:ghost_block`, `build/ghostEntities.js`), not particles:
 
-- **Build:** a cube textured with the block's own texture (`build/ghostBlocks.cjs` maps ~50 common vanilla blocks to their texture; anything else shows a generic tinted stone), slightly smaller than a block (0.9), light-blue tinted and semi-transparent.
+- **Build:** a cube with the block's own **per-face textures** (top, side, bottom - grass has a green top and a dirt side), slightly smaller than a block (0.9), light-blue tinted and semi-transparent.
 - **Mine:** a slightly larger (1.02) red translucent cube over the real block, so blocks to be mined glow red.
-- One entity type serves every block: the synced properties `ghost_tex` (texture index) and `ghost_kind` (build/mine) drive the render controller (generated from the table) and a client `scale` script.
-- Limits: the model is always a cube (stairs, slabs, fences show as full cubes); blocks with different face textures (grass, logs) show one face on every side; semi-transparency relies on `entity_alphablend` honouring the render-controller colour alpha (spike `ghosts` checks); **entities are visible to every player**, unlike particles.
-- Budget: the 220 nearest cells get entities (120 in the overlay), spawns are rate limited, the rest (and the selection and chest markers) are particles. Ghosts are removed on every exit path and orphans are swept at startup and chunk load.
+- **Every block, no hand-typed list.** The block -> texture table is generated at build time (`src/build/blockAppearance.js`) from Minecraft's own data: the vanilla `blocks.json` + `terrain_texture.json` (downloaded once from Mojang's public bedrock-samples into `<mod>/.openrock-cache/vanilla/`, or point `OPENROCK_VANILLA_RP` at a vanilla resource pack), then every package's own resource overlay (so blocks from OpenRock mods and libraries - modded blocks - are included), then any extra resource-pack folders you list in the manifest's `openchara.ghostSources`. About 1,300 blocks and 1,100 textures come out of vanilla alone. Lookup tolerates Mojang's legacy spellings (`grass` vs `grass_block`, `brick_block` vs `bricks`).
+- One entity type serves every block: the synced properties `ghost_tex` (index into the generated table) and `ghost_kind` (build/mine) drive a generated render controller (three face materials: side/top/bottom) and a client `scale` script.
+- **Limits (honest):** the model is always a cube (stairs, slabs, fences show as cubes); a block from an addon the build cannot see (separately installed, not listed in `ghostSources`) falls back to a generic stone ghost; semi-transparency relies on the translucent entity material honouring render-controller alpha; **entities are visible to every player**, unlike particles.
+- **Budget:** the 220 nearest cells get entities (120 in the overlay), spawns are rate limited, the rest (plus selection and chest markers) are particles. Ghosts are removed on every exit path; orphans are swept at startup and chunk load.
 
 ### Persistence (all through MCLite)
 
@@ -68,7 +69,7 @@ Run `/scriptevent <ns>:spike <name>`; each prints what it found to chat.
 | `fov` | does the camera API let us set the FOV? | assumed FOV in `DEFAULT_CURSOR_CONFIG`, calibration via `screen` |
 | `anchor [distance]` | does a `tick_world` entity keep a far chunk loaded? | `cameraChunkMode: "teleport"` |
 | `hud [seconds]` / `screen <w> <h>` | does the fast HUD draw and track? calibrate GUI size | keep the particle cursor (`rtsHudCursor: false`) |
-| `ghosts [seconds]` | do all ghost textures resolve (no missing-texture checkerboard), is the tint/transparency right? | edit the paths in `ghostBlocks.cjs`; if alpha is ignored, ghosts are opaque but still readable |
+| `ghosts [seconds]` | do the generated textures resolve (no missing-texture checkerboard), are the faces right, is the tint/transparency right? Also prints which real block ids in your game have no appearance | add that addon's resource pack to `openchara.ghostSources`; if alpha is ignored, ghosts are opaque but still readable |
 | `hold` | which use events fire for the held item | two-click select needs only `itemUse` |
 | `scroll` | is there any hotbar-slot / scroll event (mouse-wheel extend in Build mode)? | extend tools stay hotbar items |
 

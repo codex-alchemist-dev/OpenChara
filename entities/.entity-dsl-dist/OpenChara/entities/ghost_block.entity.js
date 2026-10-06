@@ -35,13 +35,13 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 const OpenRockEntity = __importStar(require("@openrock/entity-dsl/jsx-runtime"));
 const entity_dsl_1 = require("@openrock/entity-dsl");
-// One cube entity that can look like any block in the ghost table (build/ghostBlocks.js): the synced property
-// `ghost_tex` picks the texture, `ghost_kind` picks build (small, light blue, translucent) or mine (slightly large,
+// One cube entity that can look like any block in the generated appearance table (src/build/blockAppearance.js): the
+// synced property `ghost_tex` picks the block's side/top/bottom textures, `ghost_kind` picks build (small, light blue, translucent) or mine (slightly large,
 // red, translucent). Visible to every player - see build/ghostBlocks.js for the limits.
 const V = (0, entity_dsl_1.vars)();
 exports.default = (OpenRockEntity.createElement(entity_dsl_1.Entity, { identifier: "{{ns}}:ghost_block", formatVersion: "1.21.10", properties: {
         "{{ns}}:ghost_kind": { type: "int", range: [0, 1], default: 1, client_sync: true },
-        "{{ns}}:ghost_tex": { type: "int", range: [0, V.ghostTextureCount - 1], default: 0, client_sync: true },
+        "{{ns}}:ghost_tex": { type: "int", range: [0, V.ghostBlockCount - 1], default: 0, client_sync: true },
     }, clientFormatVersion: "1.10.0", materials: { default: "entity_alphablend" }, textures: V.ghostTextures, geometry: { default: "geometry.{{ns}}_ghost_cube" }, renderControllers: ["controller.render.{{ns}}_ghost_block"], clientScripts: { scale: "query.property('{{ns}}:ghost_kind') == 0 ? 1.02 : 0.9" } },
     OpenRockEntity.createElement(entity_dsl_1.RawComponent, { type: "minecraft:type_family", value: { family: ["{{ns}}_ghost", "inanimate"] } }),
     OpenRockEntity.createElement(entity_dsl_1.RawComponent, { type: "minecraft:collision_box", value: { width: 0.01, height: 0.01 } }),

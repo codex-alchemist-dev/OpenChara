@@ -41,6 +41,10 @@
       {
         "name": "openchara-content",
         "from": "src/build/content-module.js"
+      },
+      {
+        "name": "ghost-table",
+        "from": "src/build/ghost-table-module.js"
       }
     ],
     "scriptAliases": {
