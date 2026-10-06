@@ -35,6 +35,7 @@ import { DEFAULT_CURSOR_CONFIG as CURSOR_CFG, lookToScreen, screenToRay } from "
 import { createSelection, clearSelection, useSelect, toggleCharacter, pendingRect, boxQuery, resolveMembers, prune, isEmpty } from "./camera/rtsSelection.js";
 import { fieldedCharacters, projectFielded, squadMemberIds } from "./camera/rtsField.js";
 import { drawCursor, drawSelection, drawHover, drawBox } from "./camera/rtsFx.js";
+import { startCameraSpikes } from "./camera/spikes.js";
 import { RULES } from "../rules.js";
 import { NS, TAG } from "../ids.js";
 
@@ -87,7 +88,7 @@ export function registerRtsExitHook(fn) { session.registerExitHook(fn); }
 export function isInRts(player) { return session.isActive(player); }
 export const enterRts = player => session.enter(player);
 export const exitRts = player => session.exit(player);
-export function startRts() { startCameraSessions(); }
+export function startRts() { startCameraSessions(); startCameraSpikes(); }
 
 // ---- the running camera --------------------------------------------------------------------
 function tick(player, s) {
