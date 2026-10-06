@@ -7,6 +7,8 @@
 //   hud [seconds]        S3  draw the fast-HUD cursor moving in a circle for N seconds (default 15), outside RTS
 //   screen <w> <h>       S3  set this player's HUD screen size in GUI pixels (cursor/box calibration)
 //   hold                 S2  report itemUse/itemStartUse/itemStopUse events seen on the held item for 20s
+//   scroll               S5  list world events that look like hotbar/slot/scroll changes and report them for 20s
+//                            (a scroll signal would let Build mode's extend tools use the mouse wheel)
 //
 // Everything is opt-in and removes what it spawned.
 
@@ -68,6 +70,25 @@ function spikeHold(player) {
     }, 400);
 }
 
+function spikeScroll(player) {
+    const names = [];
+    for (const src of [world.afterEvents, world.beforeEvents]) {
+        try { for (const k of Object.keys(src)) if (/hotbar|slot|scroll|select/i.test(k)) names.push([k, src[k]]); } catch (e) { /* none */ }
+    }
+    say(player, names.length ? `candidate events: ${names.map(n => n[0]).join(", ")}` : "no hotbar/slot/scroll events exist on this API version.");
+    const seen = [];
+    const subs = [];
+    for (const [k, sig] of names) {
+        try { const fn = ev => seen.push(`${k}:${JSON.stringify(ev.newSlotIndex ?? ev.slot ?? "")}@${system.currentTick}`); sig.subscribe(fn); subs.push([sig, fn]); } catch (e) { /* before-events may need privileges */ }
+    }
+    if (!subs.length) return;
+    say(player, "now scroll the hotbar / press number keys for 20s...");
+    system.runTimeout(() => {
+        for (const [sig, fn] of subs) { try { sig.unsubscribe(fn); } catch (e) { /* fine */ } }
+        say(player, seen.length ? seen.slice(0, 20).join("  ") : "nothing fired.");
+    }, 400);
+}
+
 export function startCameraSpikes() {
     try {
         system.afterEvents.scriptEventReceive.subscribe(ev => {
@@ -81,7 +102,8 @@ export function startCameraSpikes() {
                 else if (name === "hud") spikeHud(player, Number(a) || 15);
                 else if (name === "screen") { setRtsHudScreen(player, Number(a), Number(b)); say(player, `HUD screen set to ${a}x${b}`); }
                 else if (name === "hold") spikeHold(player);
-                else say(player, "spikes: fov | anchor [distance] | hud [seconds] | screen <w> <h> | hold");
+                else if (name === "scroll") spikeScroll(player);
+                else say(player, "spikes: fov | anchor [distance] | hud [seconds] | screen <w> <h> | hold | scroll");
             } catch (e) { say(player, `spike failed: ${e?.message ?? e}`); }
         });
     } catch (e) { /* older API */ }

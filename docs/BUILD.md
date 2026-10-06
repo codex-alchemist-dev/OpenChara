@@ -59,6 +59,7 @@ Run `/scriptevent <ns>:spike <name>`; each prints what it found to chat.
 | `anchor [distance]` | does a `tick_world` entity keep a far chunk loaded? | `cameraChunkMode: "teleport"` |
 | `hud [seconds]` / `screen <w> <h>` | does the fast HUD draw and track? calibrate GUI size | keep the particle cursor (`rtsHudCursor: false`) |
 | `hold` | which use events fire for the held item | two-click select needs only `itemUse` |
+| `scroll` | is there any hotbar-slot / scroll event (mouse-wheel extend in Build mode)? | extend tools stay hotbar items |
 
 ## Checking it in-game
 
