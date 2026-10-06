@@ -33,8 +33,7 @@
 // not just a manual exitRts(), so a project can reliably clean up anything
 // it gave the player for command mode (e.g. clearControlItems).
 
-import { world, system, InputPermissionCategory } from "@minecraft/server";
-import { serializeItem, deserializeItem } from "../itemSerializer.js";
+import { world, system } from "@minecraft/server";
 import { readSquads, getSquad, getManifestedMembers } from "../squads.js";
 import { getCharacter, setOrder } from "../characterRecord.js";
 import { manifestCharacter, teleportToMe } from "../manifest.js";
@@ -45,110 +44,47 @@ import { setTaskLock } from "../fsm.js";
 import { setFollowOverride } from "../orders.js";
 import { identifyCharacter } from "../statTracking.js";
 import { closeContainer } from "./container.js";
+import { createCameraSession, startCameraSessions, BODY_TYPE as BODY } from "./camera/cameraSession.js";
 import { NS, TAG } from "../ids.js";
 
-const BODY = `${NS}:rts_body`;
-const DP_STATE = `${NS}:rts`;          // { bodyId, dim, loc, rot }
-const DP_BACKUP = `${NS}:rtsBackup`;   // serialized items (second safety net)
-const ARMOR = ["Head", "Chest", "Legs", "Feet"];
 const PITCH = 55;
 const LOCK_TICKS = 20 * 60 * 10;
-const EFFECTS = ["invisibility", "resistance", "fire_resistance", "water_breathing"];
-
-const active = new Map(); // playerId -> state
-const busy = new Set();
-const exitHooks = []; // (player) => void, run on every exit path
-
-export function registerRtsExitHook(fn) { exitHooks.push(fn); }
-function runExitHooks(player) { for (const fn of exitHooks) { try { fn(player); } catch (e) { console.warn(`[${TAG}] RTS exit hook: ${e}`); } } }
 
 const say = (p, m) => { try { p.sendMessage(m); } catch (e) { /* offline */ } };
 const bar = (p, m) => { try { p.onScreenDisplay.setActionBar(m); } catch (e) { /* fine */ } };
 function live(id) { try { const e = id && world.getEntity(id); return e?.isValid ? e : null; } catch (e) { return null; } }
-function readState(player) { try { return JSON.parse(player.getDynamicProperty(DP_STATE) ?? "null"); } catch (e) { return null; } }
 
-export function isInRts(player) { return active.has(player.id); }
+// The session owns the body double, gear swap and every exit path (ui/camera/cameraSession.js); this file is the
+// RTS mode on top of it: camera/cursor behaviour, selection state and commands.
+const session = createCameraSession({
+    id: "rts",
+    label: "Command mode",
+    dpState: `${NS}:rts`,          // { bodyId, dim, loc, rot }
+    dpBackup: `${NS}:rtsBackup`,   // serialized items (second safety net)
+    effects: ["invisibility", "resistance", "fire_resistance", "water_breathing"],
+    tickInterval: 2,
+    prepare: closeContainer,
+    makeState: (player, { loc, rot }) => ({
+        cam: { x: loc.x, y: loc.y + 20, z: loc.z - 14 },
+        r0: rot,
+        squadId: readSquads(player).find(s => s.memberIds.length)?.id ?? null,
+        formation: FORMATION_TYPES.includes("circle") ? "circle" : FORMATION_TYPES[0],
+        cursor: null,
+        target: null,
+    }),
+    // "follow" characters follow the body double, not the player.
+    onStart: (player, state) => setFollowOverride(player.id, { location: { ...player.location }, dimension: player.dimension }),
+    onStop: playerId => setFollowOverride(playerId, null),
+    onTick: (player, s) => tick(player, s),
+});
 
-// ---- item snapshots ---------------------------------------------------------------------
-// Flat 42-slot layout (rtsDummy): 0-35 inventory, 36-39 armor, 40 offhand.
-function snapshotPlayer(player) {
-    const eq = player.getComponent("minecraft:equippable");
-    const inv = player.getComponent("minecraft:inventory").container;
-    const out = new Array(42).fill(undefined);
-    for (let i = 0; i < 36 && i < inv.size; i++) out[i] = inv.getItem(i);
-    ARMOR.forEach((s, k) => { try { out[36 + k] = eq.getEquipment(s); } catch (e) { /* fine */ } });
-    try { out[40] = eq.getEquipment("Offhand"); } catch (e) { /* fine */ }
-    return out;
-}
-// A player's main hand is just their selected hotbar slot - restore it
-// through the inventory only, never setEquipment(Mainhand) (rtsDummy note).
-function writePlayer(player, items) {
-    const eq = player.getComponent("minecraft:equippable");
-    const inv = player.getComponent("minecraft:inventory").container;
-    inv.clearAll();
-    for (let i = 0; i < 36 && i < inv.size; i++) if (items[i]) inv.setItem(i, items[i]);
-    ARMOR.forEach((s, k) => eq.setEquipment(s, items[36 + k]));
-    eq.setEquipment("Offhand", items[40]);
-}
-function clearPlayer(player) {
-    const eq = player.getComponent("minecraft:equippable");
-    player.getComponent("minecraft:inventory").container.clearAll();
-    for (const s of [...ARMOR, "Offhand"]) { try { eq.setEquipment(s, undefined); } catch (e) { /* fine */ } }
-}
-const itemSig = it => (it ? `${it.typeId}x${it.amount}` : "-");
-
-// ---- enter ---------------------------------------------------------------------------------
-export function enterRts(player) {
-    if (active.has(player.id) || busy.has(player.id)) return false;
-    if (readState(player)) { restore(player); return false; }
-    busy.add(player.id);
-    try {
-        closeContainer(player);
-        const items = snapshotPlayer(player);            // read only - nothing touched yet
-        const rot = player.getRotation();
-        const loc = { ...player.location };
-        const body = player.dimension.spawnEntity(BODY, loc);
-        try { body.teleport(loc, { rotation: rot }); } catch (e) { /* fine */ }
-        const bodyInv = body.getComponent("minecraft:inventory").container;
-        items.forEach((it, i) => { if (it) bodyInv.setItem(i, it); });
-        // Confirm the copy before touching the player's own items.
-        for (let i = 0; i < 42; i++) {
-            if (itemSig(bodyInv.getItem(i)) !== itemSig(items[i])) {
-                bodyInv.clearAll(); body.remove();
-                throw new Error("couldn't copy your items safely - nothing was changed");
-            }
-        }
-        try { body.nameTag = player.name; body.setDynamicProperty(`${NS}:rtsOwner`, player.id); } catch (e) { /* fine */ }
-        player.setDynamicProperty(DP_STATE, JSON.stringify({ bodyId: body.id, dim: player.dimension.id, loc, rot }));
-        try { player.setDynamicProperty(DP_BACKUP, JSON.stringify(items.map(it => (it ? serializeItem(it) : null)))); }
-        catch (e) { console.warn(`[${TAG}] RTS backup skipped: ${e}`); }
-
-        clearPlayer(player);
-        for (const fx of EFFECTS) { try { player.addEffect(fx, 20000000, { amplifier: fx === "resistance" ? 4 : 0, showParticles: false }); } catch (e) { /* fine */ } }
-        try { player.inputPermissions.setPermissionCategory(InputPermissionCategory.Movement, false); } catch (e) { /* fine */ }
-        setFollowOverride(player.id, { location: loc, dimension: player.dimension });
-
-        const state = {
-            bodyId: body.id,
-            cam: { x: loc.x, y: loc.y + 20, z: loc.z - 14 },
-            r0: rot,
-            squadId: readSquads(player).find(s => s.memberIds.length)?.id ?? null,
-            formation: FORMATION_TYPES.includes("circle") ? "circle" : FORMATION_TYPES[0],
-            cursor: null,
-            target: null,
-        };
-        state.run = system.runInterval(() => tick(player, state), 2);
-        active.set(player.id, state);
-        return true;
-    } catch (e) {
-        say(player, `§c[Command mode] ${e?.message ?? e}`);
-        return false;
-    } finally { busy.delete(player.id); }
-}
+export function registerRtsExitHook(fn) { session.registerExitHook(fn); }
+export function isInRts(player) { return session.isActive(player); }
+export const enterRts = player => session.enter(player);
+export const exitRts = player => session.exit(player);
 
 // ---- the running camera --------------------------------------------------------------------
 function tick(player, s) {
-    if (!player.isValid) { stop(player.id); return; }
     let mv = { x: 0, y: 0 };
     try { mv = player.inputInfo.getMovementVector(); } catch (e) { /* older API */ }
     const speed = 0.35 + (s.cam.y - (s.groundY ?? s.cam.y - 20)) * 0.03;
@@ -220,7 +156,7 @@ function squadMembers(player, s) {
         .filter(m => m.entity);
 }
 function needState(player) {
-    const s = active.get(player.id);
+    const s = session.state(player);
     if (!s) throw new Error("Not in command mode.");
     return s;
 }
@@ -309,96 +245,12 @@ export function rtsSummonHere(player) {
     bar(player, `§a${squad.name}: ${n} deployed`);
 }
 
-// ---- exit / restore ------------------------------------------------------------------------------
-function stop(playerId) {
-    const s = active.get(playerId);
-    if (s) system.clearRun(s.run);
-    active.delete(playerId);
-    setFollowOverride(playerId, null);
-}
-
-export function exitRts(player) {
-    stop(player.id);
-    restore(player);
-}
-
-// Puts the player back at their body double and hands their items back.
-// Waits (up to ~5s) for the body's chunk to load; falls back to the backup.
-function restore(player) {
-    if (busy.has(player.id)) return;
-    const st = readState(player);
-    try { player.camera.clear(); } catch (e) { /* fine */ }
-    try { player.inputPermissions.setPermissionCategory(InputPermissionCategory.Movement, true); } catch (e) { /* fine */ }
-    for (const fx of EFFECTS) { try { player.removeEffect(fx); } catch (e) { /* fine */ } }
-    if (!st) { runExitHooks(player); return; }
-    busy.add(player.id);
-    try { player.teleport(st.loc, { dimension: world.getDimension(st.dim), rotation: st.rot }); } catch (e) { /* fine */ }
-    let tries = 0;
-    const wait = system.runInterval(() => {
-        tries++;
-        const body = live(st.bodyId);
-        if (!body && tries < 25) return;
-        system.clearRun(wait);
-        try {
-            let items;
-            if (body) {
-                const inv = body.getComponent("minecraft:inventory").container;
-                items = [];
-                for (let i = 0; i < 42; i++) items.push(inv.getItem(i));
-            } else {
-                const backup = JSON.parse(player.getDynamicProperty(DP_BACKUP) ?? "null");
-                if (!backup) {
-                    say(player, "§c[Command mode] Your body double and backup are both gone - your items couldn't be restored. Please report this.");
-                    player.setDynamicProperty(DP_STATE, undefined);
-                    runExitHooks(player);
-                    return;
-                }
-                items = backup.map(x => (x ? deserializeItem(x) : undefined));
-                say(player, "§e[Command mode] Your body double wasn't found - restored your items from the backup.");
-            }
-            writePlayer(player, items);
-            // Only once the player has everything back does the body go.
-            if (body) { body.getComponent("minecraft:inventory").container.clearAll(); body.remove(); }
-            player.setDynamicProperty(DP_STATE, undefined);
-            player.setDynamicProperty(DP_BACKUP, undefined);
-            runExitHooks(player);
-            say(player, "§b[Command mode] Back in your body.");
-        } catch (e) {
-            say(player, `§c[Command mode] Couldn't restore your items yet - your body double still holds them. (${e?.message ?? e})`);
-        } finally { busy.delete(player.id); }
-    }, 4);
-}
-
 // ---- wiring ----------------------------------------------------------------------------------------
-export function startRts() {
-    // Relog / respawn / reload while in RTS: restore.
-    world.afterEvents.playerSpawn.subscribe(ev => {
-        if (active.has(ev.player.id)) { stop(ev.player.id); }
-        if (readState(ev.player)) system.runTimeout(() => restore(ev.player), 20);
-    });
-    world.afterEvents.playerLeave.subscribe(ev => stop(ev.playerId));
-    system.runTimeout(() => {
-        for (const p of world.getAllPlayers()) if (readState(p) && !active.has(p.id)) restore(p);
-    }, 40);
-
-    // A body double nobody is using (its owner is online and not in RTS)
-    // is emptied and removed when its chunk loads.
-    try {
-        world.afterEvents.entityLoad.subscribe(ev => {
-            const e = ev.entity;
-            if (e?.typeId !== BODY) return;
-            let owner = null;
-            try { owner = world.getAllPlayers().find(p => p.id === e.getDynamicProperty(`${NS}:rtsOwner`)); } catch (err) { return; }
-            if (!owner) return; // offline - they'll be restored from it on rejoin
-            if (readState(owner)?.bodyId === e.id) return;
-            system.run(() => { try { e.getComponent("minecraft:inventory").container.clearAll(); e.remove(); } catch (err) { /* fine */ } });
-        });
-    } catch (e) { /* older API */ }
-}
+export function startRts() { startCameraSessions(); }
 
 // For HUDs: what the player's command mode looks like right now.
 export function getRtsInfo(player) {
-    const s = active.get(player.id);
+    const s = session.state(player);
     if (!s) return { active: false };
     const squad = s.squadId ? getSquad(player, s.squadId) : null;
     let targetName = "";
