@@ -12,6 +12,7 @@
 import core from "./controlBarCore.cjs";
 import { registerControlItem, setControlItems, clearControlItems } from "./controlItems.js";
 import { registerUiProvider, registerUiAction, openScreen } from "./runtime.js";
+import { setInventoryButtons, clearInventoryButtons } from "./inventoryButtons.js";
 
 const bars = new Map();
 let menuRegistered = false;
@@ -49,7 +50,7 @@ function registerMenu() {
 export function defineControlBar(def) {
     registerMenu();
     const bar = core.createControlBar(def, {
-        registerControlItem, setControlItems, clearControlItems, notify,
+        registerControlItem, setControlItems, clearControlItems, setInventoryButtons, clearInventoryButtons, notify,
         openMenu: (player, id) => openScreen(player, "control_menu", id),
     });
     bar.title = def.title ?? def.id;

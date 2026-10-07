@@ -23,12 +23,16 @@ const SPECIAL = new Set(["@page", "@menu"]);
  * @param {Record<number, string>} [def.fixed] slots shown on every page: command ids, "@page" (flip pages) or "@menu" (the panel)
  * @param {string} [def.pageItem] item id of the page flipper (required when "@page" is used)
  * @param {string} [def.menuItem] item id of the menu opener (required when "@menu" is used)
+ * @param {string[]|"all"} [def.inventory] commands that are ALSO offered as inventory buttons (locked marker items in the main inventory,
+ *   slots 9 upward, click = run; sneak + click = the alternate). "all" = every command the menu lists, in menu order. Needs deps.setInventoryButtons.
  * @param {object} deps
  * @param {(itemId: string, handler: (player: object) => void) => void} deps.registerControlItem
  * @param {(player: object, slots: Record<number, string>) => void} deps.setControlItems
  * @param {(player: object) => void} deps.clearControlItems
  * @param {(player: object, barId: string) => void} deps.openMenu
  * @param {(player: object, text: string) => void} deps.notify action-bar message
+ * @param {(player: object, buttons: object) => void} [deps.setInventoryButtons] see inventoryButtons.js
+ * @param {(player: object) => void} [deps.clearInventoryButtons]
  */
 function createControlBar(def, deps) {
     const { id, isActive, commands, pages, fixed = {} } = def;
@@ -65,6 +69,18 @@ function createControlBar(def, deps) {
         if (!(Number(slot) >= 0 && Number(slot) <= 8)) throw new Error(`control bar "${id}": fixed slot ${slot} is not a hotbar slot (0-8)`);
         if (!SPECIAL.has(cid) && !commands[cid]) throw new Error(`control bar "${id}": fixed slot ${slot} names unknown command "${cid}"`);
     }
+
+    const menuOrder = () => {
+        const seen = new Set();
+        const out = [];
+        for (const page of pages) for (const cid of Object.values(page.slots)) if (!SPECIAL.has(cid) && !seen.has(cid) && commands[cid].menu !== false) { seen.add(cid); out.push(cid); }
+        for (const cid of Object.values(fixed)) if (!SPECIAL.has(cid) && !seen.has(cid) && commands[cid].menu !== false) { seen.add(cid); out.push(cid); }
+        return out;
+    };
+    const inventoryIds = def.inventory === "all" ? menuOrder() : (def.inventory ?? []);
+    for (const cid of inventoryIds) if (!commands[cid]) throw new Error(`control bar "${id}": inventory names unknown command "${cid}"`);
+    if (inventoryIds.length > 27) throw new Error(`control bar "${id}": ${inventoryIds.length} inventory buttons do not fit the 27 main-inventory slots`);
+    if (inventoryIds.length && !deps.setInventoryButtons) throw new Error(`control bar "${id}" lists inventory buttons but no deps.setInventoryButtons was given`);
 
     const pageOf = new Map();   // player id -> page index
     const pageIndex = p => pageOf.get(p.id) ?? 0;
@@ -106,10 +122,25 @@ function createControlBar(def, deps) {
         commands,
         pages,
         layout,
+        inventoryButtonIds: inventoryIds,
         /** Starts at page 1 and puts the bar's items in the hotbar. */
-        give(player) { pageOf.set(player.id, 0); show(player); },
+        give(player) {
+            pageOf.set(player.id, 0);
+            show(player);
+            if (inventoryIds.length) {
+                const buttons = {};
+                inventoryIds.forEach((cid, i) => {
+                    const c = commands[cid];
+                    buttons[9 + i] = {
+                        item: c.item, name: `§f${c.label}`, lore: c.alt ? [`§7Sneak + click: ${c.alt.label}`] : [],
+                        onPress: (p, info) => runCommand(p, cid, { alt: Boolean(info.sneaking) && Boolean(c.alt) }),
+                    };
+                });
+                deps.setInventoryButtons(player, buttons);
+            }
+        },
         /** Takes the bar's items away and forgets the page (register this as the mode's exit hook). */
-        clear(player) { pageOf.delete(player.id); deps.clearControlItems(player); },
+        clear(player) { pageOf.delete(player.id); deps.clearControlItems(player); deps.clearInventoryButtons?.(player); },
         page: pageIndex,
         flip,
         run: runCommand,

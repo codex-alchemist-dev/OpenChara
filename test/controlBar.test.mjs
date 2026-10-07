@@ -18,6 +18,8 @@ function harness(overrides = {}) {
         registerControlItem: (id, fn) => handlers.set(id, fn),
         setControlItems: (p, slots) => { given.set(p.id, { ...(given.get(p.id) ?? {}), ...slots }); log.push(["set", slots]); },
         clearControlItems: p => { given.set(p.id, {}); log.push(["clear"]); },
+        setInventoryButtons: (p, b) => log.push(["inv", b]),
+        clearInventoryButtons: p => log.push(["inv-clear"]),
         openMenu: (p, id) => log.push(["menu", id]),
         notify: (p, t) => log.push(["say", t]),
     };
@@ -113,6 +115,28 @@ test("menu:false keeps a hotbar shortcut out of the panel", () => {
     assert.deepStrictEqual(h.bar.menu(), [{ title: "p", entries: [{ id: "a", label: "A", alt: null }] }]);
     h.bar.give(h.player);
     assert.deepStrictEqual(h.given.get("p1"), { 0: "t:a", 1: "t:b" }, "but it is still in the hotbar");
+});
+
+test("inventory buttons: \"all\" lays the menu commands out from slot 9; click runs the command, sneak + click the alternate; clear removes them", () => {
+    const h = harness({ inventory: "all" });
+    assert.deepStrictEqual(h.bar.inventoryButtonIds, ["rect", "mine", "save", "boom", "exit"]);
+    h.bar.give(h.player);
+    const buttons = h.log.find(l => l[0] === "inv")[1];
+    assert.deepStrictEqual(Object.keys(buttons).map(Number), [9, 10, 11, 12, 13]);
+    assert.strictEqual(buttons[9].item, "t:rect");
+    assert.deepStrictEqual(buttons[9].lore, ["§7Sneak + click: Clear selection"]);
+    buttons[9].onPress(h.player, { sneaking: false });
+    buttons[9].onPress(h.player, { sneaking: true });
+    buttons[10].onPress(h.player, { sneaking: true });
+    assert.deepStrictEqual(h.log.filter(l => ["rect", "clear-sel", "mine"].includes(l[0])).map(l => l[0]), ["rect", "clear-sel", "mine"]);
+    h.setActive(false);
+    const n = h.log.length;
+    buttons[9].onPress(h.player, { sneaking: false });
+    assert.strictEqual(h.log.length, n, "a stray click after the mode ended does nothing");
+    h.bar.clear(h.player);
+    assert.deepStrictEqual(h.log.at(-1), ["inv-clear"]);
+    assert.throws(() => harness({ inventory: ["nope"] }), /inventory names unknown command "nope"/);
+    assert.throws(() => createControlBar({ id: "x", isActive: () => true, commands: { a: { item: "t:a", label: "A", run() {} } }, pages: [{ title: "p", slots: { 0: "a" } }], inventory: ["a"] }, {}), /no deps.setInventoryButtons/);
 });
 
 test("definition mistakes fail at definition time with a message naming the bar and the problem", () => {
