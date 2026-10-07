@@ -81,7 +81,7 @@ export {
 } from "./build/buildApi.js";
 export { registerControlItem, setControlItems, clearControlItems } from "./ui/controlItems.js";
 export { defineControlBar } from "./ui/controlBar.js";
-export { setInventoryButtons, clearInventoryButtons, hasInventoryButtons } from "./ui/inventoryButtons.js";
+export { setSlotButtons, clearSlotButtons, hasSlotButtons } from "./ui/slotButtons.js";
 export { registerLanguage, listLanguages, getPlayerLanguage, setPlayerLanguage, translate } from "./ui/i18n.js";
 export { getMemberAxes } from "./fsm.js";
 export { getSquadPosture } from "./coordination.js";
