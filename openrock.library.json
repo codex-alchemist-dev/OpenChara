@@ -16,6 +16,9 @@
     },
     "@openrock/fmbe": {
       "type": "library"
+    },
+    "@openrock/cinema": {
+      "type": "library"
     }
   },
   "provides": {

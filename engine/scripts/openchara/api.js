@@ -88,3 +88,5 @@ export { getSquadPosture } from "./coordination.js";
 export { serializeItem, deserializeItem, serializeGear, deserializeGear, serializeInventory, deserializeInventory } from "./itemSerializer.js";
 export { promptNickname } from "./nicknameUI.js";
 export { renderRichContent } from "./richContent.js";
+export { startCinema } from "./cinema/cinemaService.js";
+export { createCinemaFlags } from "./cinema/cinemaFlags.js";
