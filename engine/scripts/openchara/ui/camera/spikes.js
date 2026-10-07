@@ -12,12 +12,15 @@
 //   display <block id>   S7  show ONE block (any id, modded too) as an FMBE display fox (left) next to the generic ghost cube
 //                            (right) - FMBE is how blocks with no texture data are shown. Removes them after 30s
 //   fmbe [ypos scale xpos zpos entityY]  S7b show / set the FMBE display placement (then copy it into rule ghostFmbe)
+//   invclick             S8  can a click on an inventory item be detected? Puts a stick (lock mode: inventory) in slot 20 and, for 40s,
+//                            reports playerInventoryItemChange and - where this API version has them - playerCursorItemGrab/Release.
+//                            Open your inventory, click / drag the stick, read the report
 //   scroll               S5  list world events that look like hotbar/slot/scroll changes and report them for 20s
 //                            (a scroll signal would let Build mode's extend tools use the mouse wheel)
 //
 // Everything is opt-in and removes what it spawned.
 
-import { world, system, BlockTypes, ItemStack } from "@minecraft/server";
+import { world, system, BlockTypes, ItemStack, ItemLockMode } from "@minecraft/server";
 import { ANCHOR_TYPE } from "./chunkAnchor.js";
 import { setRtsHudScreen, getRtsHudScreen, hudSpike } from "./rtsHud.js";
 import { createGhostLayer, releaseGhostLayer, ghostTextureIndex, setGhostFmbe, getGhostFmbe } from "../../build/ghostEntities.js";
@@ -32,6 +35,36 @@ function spikeFov(player) {
     for (let o = cam; o && o !== Object.prototype; o = Object.getPrototypeOf(o)) methods.push(...Object.getOwnPropertyNames(o));
     say(player, `camera API: ${[...new Set(methods)].filter(m => m !== "constructor").join(", ")}`);
     say(player, `setFov: ${typeof cam.setFov}`);
+}
+
+function spikeInvClick(player) {
+    const inv = player.getComponent("minecraft:inventory").container;
+    const probe = new ItemStack("minecraft:stick", 1);
+    probe.nameTag = "§bclick me";
+    probe.lockMode = ItemLockMode.inventory;
+    const slot = 20;
+    const before = inv.getItem(slot);
+    inv.setItem(slot, probe);
+    const subs = [];
+    const watch = (signal, label) => {
+        try {
+            const sig = world.afterEvents[signal];
+            if (!sig) { say(player, `${label}: not in this @minecraft/server version`); return; }
+            const fn = ev => { if (ev.player?.id === player.id) say(player, `${label}: ${JSON.stringify({ slot: ev.slot, inventoryType: ev.inventoryType, item: (ev.itemStack ?? ev.item)?.typeId ?? null, before: ev.beforeItemStack?.typeId ?? null, keys: Object.keys(ev).slice(0, 8) })}`); };
+            sig.subscribe(fn);
+            subs.push(() => sig.unsubscribe(fn));
+            say(player, `${label}: listening`);
+        } catch (e) { say(player, `${label}: ${e?.message ?? e}`); }
+    };
+    watch("playerInventoryItemChange", "playerInventoryItemChange");
+    watch("playerCursorItemGrab", "playerCursorItemGrab");
+    watch("playerCursorItemRelease", "playerCursorItemRelease");
+    say(player, "A '§bclick me§r' stick is in inventory slot 21 (lock: inventory). Open the inventory and click it, drag it, drop it outside. 40s.");
+    system.runTimeout(() => {
+        for (const off of subs) { try { off(); } catch (e) { /* fine */ } }
+        try { if (inv.getItem(slot)?.typeId === "minecraft:stick") inv.setItem(slot, before); } catch (e) { /* fine */ }
+        say(player, "invclick done.");
+    }, 800);
 }
 
 function spikeAnchor(player, distance) {
@@ -149,6 +182,7 @@ export function startCameraSpikes() {
                 else if (name === "hud") spikeHud(player, Number(a) || 15);
                 else if (name === "screen") { setRtsHudScreen(player, Number(a), Number(b)); say(player, `HUD screen set to ${a}x${b}`); }
                 else if (name === "hold") spikeHold(player);
+                else if (name === "invclick") spikeInvClick(player);
                 else if (name === "scroll") spikeScroll(player);
                 else if (name === "ghosts") spikeGhosts(player, Number(a) || 30);
                 else if (name === "display") spikeDisplay(player, a);
@@ -158,7 +192,7 @@ export function startCameraSpikes() {
                     if (Object.keys(patch).length) setGhostFmbe(patch);
                     say(player, `FMBE placement ${JSON.stringify(getGhostFmbe())} (copy into rule ghostFmbe once the block fills its cell)`);
                 }
-                else say(player, "spikes: fov | anchor [distance] | hud [seconds] | screen <w> <h> | hold | scroll | ghosts [seconds] | display <block id> | fmbe [ypos scale xpos zpos entityY]");
+                else say(player, "spikes: fov | anchor [distance] | hud [seconds] | screen <w> <h> | hold | invclick | scroll | ghosts [seconds] | display <block id> | fmbe [ypos scale xpos zpos entityY]");
             } catch (e) { say(player, `spike failed: ${e?.message ?? e}`); }
         });
     } catch (e) { /* older API */ }
