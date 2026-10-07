@@ -80,6 +80,7 @@ export {
     enterBuild, exitBuild, isInBuild, registerBuildExitHook, buildAction, setBuildBlock, getBuildInfo, schematicsOf, SCHEMATIC_STATUS,
 } from "./build/buildApi.js";
 export { registerControlItem, setControlItems, clearControlItems } from "./ui/controlItems.js";
+export { defineControlBar } from "./ui/controlBar.js";
 export { registerLanguage, listLanguages, getPlayerLanguage, setPlayerLanguage, translate } from "./ui/i18n.js";
 export { getMemberAxes } from "./fsm.js";
 export { getSquadPosture } from "./coordination.js";
