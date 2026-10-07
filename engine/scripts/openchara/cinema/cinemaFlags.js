@@ -19,6 +19,9 @@ export function createCinemaFlags({ db, world }) {
     return {
         has: (player, name) => read(player)[name] === true,
         set,
+        unset(player, name) {
+            db.writeRecord(player, world, KIND, recordId(player), old => { const flags = { ...(old?.flags ?? {}) }; delete flags[name]; return { ...(old ?? {}), id: recordId(player), flags }; });
+        },
         markSeen: (player, id) => set(player, `seen:${id}`),
         hasSeen: (player, id) => read(player)[`seen:${id}`] === true,
         list: player => Object.keys(read(player)),

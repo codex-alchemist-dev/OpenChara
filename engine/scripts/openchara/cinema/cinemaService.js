@@ -76,6 +76,8 @@ export function startCinema({ cutscenes, scenes = {}, functions = {}, hooks = {}
         stopAll: () => runtime.stopAll(),
         hasSeen: flags.hasSeen,
         hasFlag: flags.has,
+        setFlag: flags.set,
+        clearFlag: flags.unset,
         /** The raw runtimes, for projects that need more. */
         runtime, fmbe, flags,
     };

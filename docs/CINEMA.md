@@ -24,7 +24,8 @@ cinema.play("showcase", [player]);
 - **Seen markers and flags** (`mark_seen`, `set_flag`) are stored per player through MCLite's record layer (`cinemaFlags.js`), never raw dynamic properties. `cinema.hasSeen(player, id)` / `cinema.hasFlag(player, name)`.
 - **Skipping**: hold jump for 1.5 s (an action-bar hint appears), or `/scriptevent <ns>:cinema skip`. Also `play <id>`, `stop`, `list`.
 - **Relative coordinates**: `(~4, ~, ~)` in a `.cinema` file is 4 blocks east of where the player stood when it started, so a cutscene works anywhere.
-- Optional UI hooks for letterbox bars, screen overlays and actor speech: pass `hooks: { letterbox, screenShow, screenHide, say }`. Without them those verbs warn once and the cutscene continues.
+- **Automatic cutscenes** can bind existing entities: `cinema.play("first_meeting", [player], { cast: { waifu: summonedEntity } })`. Claude Waifus plays `first_meeting` once per player the first time a waifu is summoned; `/scriptevent <ns>:cinema off` (per player) turns automatic cutscenes off, `on` back on.
+- Optional UI hooks for letterbox bars, screen overlays and actor speech: pass `hooks: { letterbox, screenShow, screenHide, say }`. Without them those verbs warn once and the cutscene continues. Claude Waifus implements them as MinUI HUDs (`PATCHES/ui/hud.ui.html`, `PATCHES/scripts/cinema.js`).
 
 ## Not verified in-game
 

@@ -25,6 +25,9 @@ test("seen markers and flags persist per player through MCLite records, never ra
     assert.ok(a.getDynamicPropertyIds().every(k => k.startsWith("mclite:")), "only MCLite keys");
     const again = createCinemaFlags({ db: mclite, world });
     assert.strictEqual(again.hasSeen(a, "intro"), true, "survives a fresh store (restart)");
+    flags.unset(a, "met_mira");
+    assert.strictEqual(flags.has(a, "met_mira"), false, "unset removes a flag");
+    assert.strictEqual(flags.hasSeen(a, "intro"), true, "and leaves the others");
     assert.throws(() => flags.set(a, ""), /needs a name/);
     assert.throws(() => createCinemaFlags({ db: {}, world }), /db\.registerRecordKind is required/);
 });
