@@ -6,6 +6,7 @@
 //                            the chunk there becomes loaded, then remove it
 //   hud [seconds]        S3  draw the fast-HUD cursor moving in a circle for N seconds (default 15), outside RTS
 //   screen <w> <h>       S3  set this player's HUD screen size in GUI pixels (cursor/box calibration)
+//   toast                S3a queue one normal HUD toast: does the plain (non-fast) HUD channel show anything at all?
 //   hold                 S2  report itemUse/itemStartUse/itemStopUse events seen on the held item for 20s
 //   ghosts [seconds]     S6  show every ghost-block texture in a row in front of you (plus a red mine cube) so a wrong
 //                            texture path (missing-texture checkerboard) or tint problem is obvious
@@ -23,6 +24,7 @@
 import { world, system, BlockTypes, ItemStack, ItemLockMode } from "@minecraft/server";
 import { ANCHOR_TYPE } from "./chunkAnchor.js";
 import { setRtsHudScreen, getRtsHudScreen, hudSpike } from "./rtsHud.js";
+import { hudDebug, showToast } from "../hud.js";
 import { createGhostLayer, releaseGhostLayer, ghostTextureIndex, setGhostFmbe, getGhostFmbe } from "../../build/ghostEntities.js";
 import { GHOST_INDEX } from "../../build/ghostTable.generated.js";
 import { NS } from "../../ids.js";
@@ -93,7 +95,21 @@ function spikeAnchor(player, distance) {
 
 function spikeHud(player, seconds) {
     hudSpike.set(player.id, system.currentTick + seconds * 20);
+    // Layer-by-layer report so a missing sprite can be traced: server side first (this), then the client.
+    const d = hudDebug(player);
+    say(player, `HUD pipeline: ${d.huds.length} huds [${d.huds.join(", ")}]; providers: ${d.providers.includes("rtsCursor") ? "rtsCursor registered" : "rtsCursor MISSING"}`);
+    let n = 0;
+    const id = system.runInterval(() => {
+        const q = hudDebug(player);
+        say(player, `+${++n}s queued=${q.queued} fast=${q.queuedFast} lastSent=${q.lastSent.join(" | ")}`);
+        if (n >= Math.min(seconds, 5)) system.clearRun(id);
+    }, 20);
     say(player, `fast HUD test for ${seconds}s: a sprite circles the screen with a rectangle at the centre. Screen size used: ${JSON.stringify(getRtsHudScreen(player))}. Needs rtsHudCursor on to be useful in RTS.`);
+}
+
+function spikeToast(player) {
+    showToast(player, "HUD toast test - if you can read this, the normal HUD channel works");
+    say(player, "queued a toast (normal HUD channel, not the fast one). It should appear above the hotbar for ~3s. Settings > HUD must have it on.");
 }
 
 function spikeHold(player) {
@@ -182,6 +198,7 @@ export function startCameraSpikes() {
                 else if (name === "hud") spikeHud(player, Number(a) || 15);
                 else if (name === "screen") { setRtsHudScreen(player, Number(a), Number(b)); say(player, `HUD screen set to ${a}x${b}`); }
                 else if (name === "hold") spikeHold(player);
+                else if (name === "toast") spikeToast(player);
                 else if (name === "invclick") spikeInvClick(player);
                 else if (name === "scroll") spikeScroll(player);
                 else if (name === "ghosts") spikeGhosts(player, Number(a) || 30);
@@ -192,7 +209,7 @@ export function startCameraSpikes() {
                     if (Object.keys(patch).length) setGhostFmbe(patch);
                     say(player, `FMBE placement ${JSON.stringify(getGhostFmbe())} (copy into rule ghostFmbe once the block fills its cell)`);
                 }
-                else say(player, "spikes: fov | anchor [distance] | hud [seconds] | screen <w> <h> | hold | invclick | scroll | ghosts [seconds] | display <block id> | fmbe [ypos scale xpos zpos entityY]");
+                else say(player, "spikes: fov | anchor [distance] | hud [seconds] | screen <w> <h> | hold | toast | invclick | scroll | ghosts [seconds] | display <block id> | fmbe [ypos scale xpos zpos entityY]");
             } catch (e) { say(player, `spike failed: ${e?.message ?? e}`); }
         });
     } catch (e) { /* older API */ }

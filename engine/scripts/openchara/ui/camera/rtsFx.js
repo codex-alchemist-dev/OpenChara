@@ -15,12 +15,12 @@ const P = {
 
 // Cursor look per action (the held control item picks the action; see registerRtsActionFx in rts.js).
 const CURSOR_FX = {
-    move: pts => pts.square,
-    attack: pts => [...pts.square, ...pts.cross],
-    surround: pts => [...pts.ring],
-    summon: pts => [...pts.square, ...pts.ring],
-    formation: pts => pts.square,
-    select: pts => pts.cross,
+    move: pts => [...pts.square, ...pts.beam],
+    attack: pts => [...pts.square, ...pts.cross, ...pts.beam],
+    surround: pts => [...pts.ring, ...pts.beam],
+    summon: pts => [...pts.square, ...pts.ring, ...pts.beam],
+    formation: pts => [...pts.square, ...pts.beam],
+    select: pts => [...pts.cross, ...pts.beam],
 };
 
 function spawn(player, id, p) { try { player.spawnParticle(id, p); } catch (e) { /* fine */ } }
@@ -30,7 +30,9 @@ function cursorPoints(b) {
     const square = [[0.1, 0.1], [0.9, 0.1], [0.1, 0.9], [0.9, 0.9], [0.5, 0.5]].map(([dx, dz]) => ({ x: b.x + dx, y, z: b.z + dz }));
     const cross = [[0.5, 0.1], [0.5, 0.9], [0.1, 0.5], [0.9, 0.5]].map(([dx, dz]) => ({ x: b.x + dx, y, z: b.z + dz }));
     const ring = Array.from({ length: 8 }, (_, i) => ({ x: b.x + 0.5 + Math.cos(i * Math.PI / 4) * 1.4, y, z: b.z + 0.5 + Math.sin(i * Math.PI / 4) * 1.4 }));
-    return { square, cross, ring };
+    // A vertical beam: from the camera's height a single block marker is a speck, a tall column is not.
+    const beam = Array.from({ length: 9 }, (_, i) => ({ x: b.x + 0.5, y: y + i * 1.2, z: b.z + 0.5 }));
+    return { square, cross, ring, beam };
 }
 
 export function drawCursor(player, { hitBlock, target, targetIsOwn, action = "move" }) {
