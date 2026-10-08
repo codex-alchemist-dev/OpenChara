@@ -17,7 +17,7 @@ const DEFAULTS = {
     ghostStyle: "auto",     // Build mode ghosts: "auto" (our cube for known blocks, a real-block FMBE fox for the rest), "cube" or "fmbe"
     ghostFmbeSystem: "static", // which @openrock/fmbe system draws ghosts: "static" (3 commands, cheapest), "advanced" (5, wiki diagonal-transformation) or "basic" (8)
     ghostFmbe: { scale: 0.9, xpos: 0, ypos: 0, zpos: 0, entityY: 0 }, // FMBE placement: size, 1/16-block offsets, spawn height offset (calibrate with the fmbe spike)
-    rtsHudCursor: false,    // draw the RTS cursor and selection box as a HUD sprite (needs the fast-HUD spike to pass in-game)
+    rtsHudCursor: true,     // draw the RTS cursor and selection box as a HUD sprite (a particle cursor is invisible from the command camera's height); false = particles only
     buildArchiveDays: 30,   // how long an archived build schematic is kept before it is purged
 };
 

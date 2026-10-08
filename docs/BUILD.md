@@ -21,7 +21,7 @@ an invisible `<ns>:camera_anchor` entity with `minecraft:tick_world` follows the
 - **Orders** (`rtsMove`, `rtsAttack`, `rtsSurround`, `rtsSummonHere`, formations) act only on the selection.
 - **Feedback:** particles per player (`ui/camera/rtsFx.js`): cursor look depends on the held item's action
   (`registerRtsActionFx(itemTypeId, action)`), selection rings, hover rings, ground rectangle.
-- **HUD cursor (optional):** rule `rtsHudCursor` draws the cursor sprite and selection rectangle as a *fast HUD*
+- **HUD cursor (on by default):** rule `rtsHudCursor` (default `true`; a particle cursor is invisible from the command camera's height, so `false` is only a fallback if the fast HUD fails the `hud` spike) draws the cursor sprite and selection rectangle as a *fast HUD*
   (MinUI `<hud fast>` with `<float>`/`<box>`, see MinUI docs). Off by default until spike S3 passes.
 
 ## Build mode (`build/`)

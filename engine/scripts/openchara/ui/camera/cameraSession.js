@@ -40,6 +40,22 @@ let wired = false;
 const say = (p, m) => { try { p.sendMessage(m); } catch (e) { /* offline */ } };
 function live(id) { try { const e = id && world.getEntity(id); return e?.isValid ? e : null; } catch (e) { return null; } }
 
+/**
+ * Hands the camera back to the player's own perspective, and keeps insisting for a few seconds. One clear() is not always
+ * enough: a camera instruction still in flight (an eased move sent on the last tick, a packet racing the clear) can land
+ * after it and leave the player stuck in the mode's view. The follow-up clears only run while the player is in NO camera
+ * mode, so they never fight a mode they re-entered.
+ */
+export function releaseCamera(player) {
+    const clear = () => { try { player.camera.clear(); } catch (e) { /* offline / invalid */ } };
+    clear();
+    for (const delay of [2, 10, 30, 80]) {
+        system.runTimeout(() => {
+            try { if (player.isValid && !isAnyCameraActive(player.id)) player.camera.clear(); } catch (e) { /* gone */ }
+        }, delay);
+    }
+}
+
 export function createCameraSession(mode) {
     const active = new Map(); // playerId -> state
     const exitHooks = [];
@@ -56,9 +72,9 @@ export function createCameraSession(mode) {
     // Puts the player back at their body double and hands their items back.
     // Waits (up to ~5s) for the body's chunk to load; falls back to the backup.
     function restore(player) {
+        releaseCamera(player);                  // first thing, even if a restore is already running: the camera must never be left behind
         if (busy.has(player.id)) return;
         const st = readState(player);
-        try { player.camera.clear(); } catch (e) { /* fine */ }
         try { player.inputPermissions.setPermissionCategory(InputPermissionCategory.Movement, true); } catch (e) { /* fine */ }
         for (const fx of mode.effects) { try { player.removeEffect(fx); } catch (e) { /* fine */ } }
         if (!st) { runExitHooks(player); return; }
@@ -135,6 +151,7 @@ export function createCameraSession(mode) {
             mode.onStart?.(player, state);
             state.run = system.runInterval(() => {
                 if (!player.isValid) { stop(player.id); return; }
+                if (active.get(player.id) !== state) return;   // exited in this very tick: never touch the camera again
                 mode.onTick(player, state);
             }, mode.tickInterval ?? 2);
             active.set(player.id, state);
@@ -180,7 +197,10 @@ export function startCameraSessions() {
     try {
         world.afterEvents.entityDie.subscribe(ev => {
             const id = ev.deadEntity?.id;
-            if (ev.deadEntity?.typeId === "minecraft:player") for (const s of sessions) s.stop(id);
+            if (ev.deadEntity?.typeId === "minecraft:player") {
+                for (const s of sessions) s.stop(id);
+                releaseCamera(ev.deadEntity);   // the loop is stopped: do not leave the top-down view on the death screen / respawn
+            }
         });
     } catch (e) { /* older API */ }
     // Dimension change while in a camera mode: leave it cleanly (the player is returned to the body double).
