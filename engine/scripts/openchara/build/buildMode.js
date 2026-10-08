@@ -142,7 +142,8 @@ function tick(player, s) {
         player.camera.setCamera("minecraft:free", { location: s.cam, rotation: { x: rot.x, y: rot.y }, easeOptions: { easeTime: 0.05 } });
     } catch (e) { console.warn(`[${TAG}] Build camera: ${e}`); }
 
-    if (system.currentTick % FX_EVERY === 0) draw(player, s);
+    s.runs = (s.runs ?? 0) + 1;   // count the loop's own runs: system.currentTick parity is arbitrary
+    if (s.runs % FX_EVERY === 0) draw(player, s);
     if (s.dirty && system.currentTick - s.lastSave > AUTOSAVE_TICKS) persist(player, s);
 }
 

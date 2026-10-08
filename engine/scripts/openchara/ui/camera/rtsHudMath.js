@@ -5,6 +5,7 @@ export const CURSOR_SIZE = 16;
 
 /** Pure: the HUD values for a given RTS info + screen size. */
 export function hudValues(info, screen) {
+    if (!info?.screen) return { visible: false, cx: 0, cy: 0, bx: 0, by: 0, bw: 0, bh: 0 };   // before the first tick there is no cursor yet
     const cx = info.screen.u * screen.w - CURSOR_SIZE / 2;
     const cy = info.screen.v * screen.h - CURSOR_SIZE / 2;
     const r = info.rect;

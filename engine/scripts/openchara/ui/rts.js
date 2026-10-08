@@ -41,7 +41,7 @@ import { NS, TAG } from "../ids.js";
 
 const POSE = Object.freeze({ pitch: 55, yaw: 0 });
 const LOCK_TICKS = 20 * 60 * 10;
-const FX_EVERY = 4;
+const FX_EVERY = 4;   // ticks between world-feedback redraws (particles); counted in LOOP RUNS below, never against system.currentTick
 
 const say = (p, m) => { try { p.sendMessage(m); } catch (e) { /* offline */ } };
 const bar = (p, m) => { try { p.onScreenDisplay.setActionBar(m); } catch (e) { /* fine */ } };
@@ -92,6 +92,11 @@ export function startRts() { startCameraSessions(); startCameraSpikes(); }
 
 // ---- the running camera --------------------------------------------------------------------
 function tick(player, s) {
+    // The loop runs every `tickInterval` ticks starting whenever the mode was entered, so system.currentTick can have the
+    // "wrong" parity forever: `currentTick % 4 === 0` would then NEVER be true and no cursor/selection would ever be drawn.
+    // Count the loop's own runs instead.
+    s.runs = (s.runs ?? 0) + 1;
+    const every = ticks => s.runs % Math.max(1, Math.round(ticks / (session.mode.tickInterval ?? 1))) === 0;
     const { mv, vertical } = readInputs(player);
     panRts(s.cam, mv, vertical, { groundY: s.groundY });
 
@@ -110,10 +115,10 @@ function tick(player, s) {
                 .find(e => e.isValid && e.typeId !== "minecraft:player" && e.typeId !== BODY && e.typeId !== `${NS}:container` && e.typeId !== `${NS}:camera_anchor` && e.typeId !== `${NS}:ghost_block` && e.typeId !== "minecraft:item") ?? null;
         } catch (e) { /* fine */ }
         s.target = target;
-        if (system.currentTick % FX_EVERY === 0) drawFeedback(player, s, hit);
+        if (every(FX_EVERY)) drawFeedback(player, s, hit);
     } catch (e) { /* ray hiccup - skip this tick */ }
 
-    if (system.currentTick % 10 === 0) {
+    if (every(10)) {
         try {
             const top = player.dimension.getTopmostBlock({ x: s.cam.x, z: s.cam.z });
             if (top) s.groundY = top.location.y;
