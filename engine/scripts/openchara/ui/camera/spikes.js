@@ -29,7 +29,8 @@ import { createGhostLayer, releaseGhostLayer, ghostTextureIndex, setGhostFmbe, g
 import { GHOST_INDEX } from "../../build/ghostTable.generated.js";
 import { NS } from "../../ids.js";
 
-const say = (p, m) => { try { p.sendMessage(`§e[spike] §r${m}`); } catch (e) { /* offline */ } };
+// Spike output goes to chat AND the content log (console.warn lands there), so a report can be read without copying chat.
+const say = (p, m) => { console.warn(`[spike] ${m}`); try { p.sendMessage(`§e[spike] §r${m}`); } catch (e) { /* offline */ } };
 
 function spikeFov(player) {
     const cam = player.camera;
