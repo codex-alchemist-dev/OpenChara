@@ -88,7 +88,10 @@ export function enterBuild(player, { schematicId = null } = {}) {
 
 export function exitBuild(player) {
     const s = session.state(player);
-    if (s) persist(player, s, { force: true });
+    // Saving must never be able to keep the player stuck in the mode: a save that throws (or fails) is reported, the exit hook
+    // retries it once more, and the camera and body are handed back regardless.
+    try { if (s) persist(player, s, { force: true }); }
+    catch (e) { console.warn(`[${TAG}] Build mode: saving on exit failed (${e?.message ?? e}); leaving anyway`); say(player, "§c[Build mode] Your plan couldn't be saved; leaving anyway."); }
     session.exit(player);
 }
 
