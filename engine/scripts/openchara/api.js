@@ -44,7 +44,7 @@ export { findOnlinePlayer, identifyCharacter, isInCombat } from "./statTracking.
 export { getClass, getAbility, resolveDefaultClass } from "./classData.js";
 export { SPECIES, getSpeciesInfo, DEFAULT_SPECIES, findSpeciesByLegacyType, legacyTypeMap } from "./speciesData.js";
 export { applyAppearance, getRig } from "./appearance.js";
-export { SKIN_VARIANTS, setSkinVariant, getSkinVariant } from "./skins.js";
+export * from "./look/index.js";
 export { questAvailableTo, checkQuestProgress } from "./quests.js";
 
 // ---- avatars in the world --------------------------------------------------------

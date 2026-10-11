@@ -1,66 +1,74 @@
 // How per-character DATA becomes the one character entity's visuals. Every character of a project is the SAME entity
-// ({{ns}}:{{char}}); what differs is data keyed by its `species_index` (and `skin_variant`) entity properties. This module
-// is the pure part of that: it turns the characters + rigs tables into texture/geometry tables, the render controller, and
-// the Molang lookup expressions the client entity uses. No file IO, so it is unit-tested without a build.
+// ({{ns}}:{{char}}); what differs is data keyed by entity properties. This module is the pure build-time part: it turns the
+// characters, rigs and overlays tables into texture/geometry tables, the render controller, and the client expressions.
+// No file IO, so it is unit-tested without a build. The runtime that DECIDES which skin to show is engine/.../look/.
+//
+// Entity properties (all client-synced):
+//   species_index  geometry / material (through the character's rig)
+//   skin_id        which texture: a GLOBAL id over every skin of every character (assigned here, regenerated each build,
+//                  never stored - the entity is a puppet, the record is the truth)
+//   body_scale     model scale in permille            rig_index   which rig (animation gating)
+//   ov_<name>      level (0 = off) of each overlay layer (dirt, wetness, wounds...)
 //
 // Character fields it understands (all optional except texture):
-//   texture, emissiveTexture   base skin and its glow layer
-//   skins                      { night|water|waterNight: { texture, emissiveTexture? } } alternate skins (entity property skin_variant)
-//   rig                        id of rigs/<id>.json - which geometry/material/animation set the character uses
-//   body                       { scale } model scale (client-side: scripts.scale reads the entity's body_scale property)
-// Rig fields: { id, index, geometry, material?, animate?: string[] } - `index` is permanent (it is stored on entities as rig_index).
+//   texture, emissiveTexture   the "default" skin and its glow layer
+//   skins                      { <name>: { texture, emissiveTexture? } } every other skin (night, hunt, hunt_night, freckled_2...)
+//   rig                        id of rigs/<id>.json        body   { scale }
+// Which skin shows when is skinRules / forms (engine look/skinRules.js, validated in content.js).
+// Overlay fields: overlays/<id>.json { id, material?, levels: { "<rig id>" | "*": [texture for level 1, level 2, ...] } }.
 "use strict";
 
-const SKIN_VARIANTS = ["default", "night", "water", "waterNight"];   // skin_variant property values 0..3 (never reorder: stored on entities)
 const SCALE_UNIT = 1000;                                            // body_scale property is permille
-const BLANK_TEXTURE = "textures/oc/blank";                            // 1x1 transparent PNG shipped by OpenChara (emissive layer fallback)
+const BLANK_TEXTURE = "textures/oc/blank";                          // 1x1 transparent PNG shipped by OpenChara
+const DEFAULT_SKIN = "default";
+const SKIN_NAME = /^[a-z][A-Za-z0-9_]*$/;
 
-const keyOfIndex = i => `species${i}`;
-const lightKeyOfIndex = i => `light${i}`;
-const variantKey = (i, variant, light) => `${light ? "light" : "species"}${i}_${variant}`;
+const byIndex = characters => Object.values(characters).sort((a, b) => a.index - b.index);
 
-/** The characters sorted by index, plus the highest index. */
-function layout(characters) {
-    const list = Object.values(characters).sort((a, b) => a.index - b.index);
-    return { list, max: Math.max(0, ...list.map(c => c.index)) };
-}
-
-/** Which of the non-default skin variants any character defines. */
-function usedVariants(list) {
-    return SKIN_VARIANTS.slice(1).filter(v => list.some(c => c.skins?.[v]));
-}
-
-/**
- * Texture short-names -> paths for the CLIENT entity description. Includes the blank fallback only when something glows.
- * @returns {Record<string, string>}
- */
-function textureTable(characters) {
-    const { list } = layout(characters);
-    const out = {};
-    const anyLight = list.some(c => c.emissiveTexture || Object.values(c.skins ?? {}).some(s => s.emissiveTexture));
-    for (const c of list) {
-        out[keyOfIndex(c.index)] = c.texture;
-        if (c.emissiveTexture) out[lightKeyOfIndex(c.index)] = c.emissiveTexture;
-        for (const v of usedVariants(list)) {
-            const s = c.skins?.[v];
-            if (!s) continue;
-            out[variantKey(c.index, v, false)] = s.texture;
-            if (s.emissiveTexture) out[variantKey(c.index, v, true)] = s.emissiveTexture;
-        }
+/** Every skin of every character, in a stable order, with its global id: [{ id, char, name, texture, emissive }]. */
+function skinList(characters) {
+    const out = [];
+    for (const c of byIndex(characters)) {
+        out.push({ id: out.length, char: c.id, name: DEFAULT_SKIN, texture: c.texture, emissive: c.emissiveTexture ?? null });
+        for (const name of Object.keys(c.skins ?? {}).sort()) out.push({ id: out.length, char: c.id, name, texture: c.skins[name].texture, emissive: c.skins[name].emissiveTexture ?? null });
     }
-    if (anyLight) out.blank = BLANK_TEXTURE;
     return out;
 }
 
-/** Whether the project needs the emissive layer at all. */
-function hasEmissive(characters) {
-    return Object.values(characters).some(c => c.emissiveTexture || Object.values(c.skins ?? {}).some(s => s.emissiveTexture));
+/** character id -> { skinName: global id } (always includes "default"). */
+function skinIds(characters) {
+    const ids = {};
+    for (const s of skinList(characters)) (ids[s.char] ??= {})[s.name] = s.id;
+    return ids;
+}
+
+const hasEmissive = characters => skinList(characters).some(s => s.emissive);
+
+/** Overlay layers sorted by name (stable property / array order). */
+const overlayList = overlays => Object.values(overlays ?? {}).sort((a, b) => a.id.localeCompare(b.id));
+const overlayLevels = ov => Math.max(1, ...Object.values(ov.levels ?? {}).map(l => l.length));
+const overlayKey = (ov, rigId, level) => `ov_${ov.id}_${String(rigId).replace(/\W/g, "_")}_${level}`;
+
+/**
+ * Texture short-names -> paths for the CLIENT entity description.
+ * @returns {Record<string, string>}
+ */
+function textureTable(characters, overlays = {}) {
+    const out = {};
+    const list = skinList(characters);
+    for (const s of list) {
+        out[`skin${s.id}`] = s.texture;
+        if (s.emissive) out[`glow${s.id}`] = s.emissive;
+    }
+    for (const ov of overlayList(overlays)) for (const [rigId, levels] of Object.entries(ov.levels ?? {})) levels.forEach((tex, i) => { out[overlayKey(ov, rigId, i + 1)] = tex; });
+    if (hasEmissive(characters) || overlayList(overlays).length) out.blank = BLANK_TEXTURE;
+    return out;
 }
 
 /**
- * A balanced-ternary Molang expression returning values[i] for the integer `indexExpr`, or `fallback` out of range.
- * (Molang has no arrays outside render controllers; this is how scale/animation gating follow the species.)
- * @param {Array<[number, number|string]>} pairs [index, value] entries, any order, unique indexes
+ * A balanced-ternary Molang expression returning the value for the integer `indexExpr`, or `fallback` out of range.
+ * (Molang has no arrays outside render controllers.) Small tables only - big per-species data belongs in a property.
+ * @param {Array<[number, number|string]>} pairs [index, value] entries, unique indexes
  */
 function lookupExpr(pairs, indexExpr, fallback = 1) {
     const sorted = [...pairs].sort((a, b) => a[0] - b[0]);
@@ -89,73 +97,75 @@ function featureExpression(rigs, feature, ns) {
 }
 
 /**
- * The render controller document for the character. Geometry and material follow the rig; texture follows species and skin
- * variant; glow layers (when any exist) ride a second texture with the emissive material.
+ * The render controller document. Geometry and material follow the rig (by species); the base texture follows skin_id; glow
+ * (when any skin glows) is a second layer; each overlay is one more alpha layer chosen by rig and its level property.
  */
-function renderController({ ns, key, characters, rigs, defaults }) {
-    const { list, max } = layout(characters);
+function renderController({ ns, key, characters, rigs, overlays = {}, defaults }) {
+    const list = byIndex(characters);
     const first = list[0];
-    const variants = usedVariants(list);
+    const max = Math.max(0, ...list.map(c => c.index));
     const slotOf = i => (list.some(c => c.index === i) ? i : first?.index ?? 0);
+    const charAt = i => list.find(x => x.index === slotOf(i)) ?? first ?? {};
     const rigOf = c => rigs[c.rig] ?? { geometry: defaults.geometry, material: defaults.material };
 
-    const table = textureTable(characters);
-    // The texture short-name for index i, variant v (null = default skin) on the base or glow layer. A character without that
-    // variant shows its default skin (and default glow); a variant skin without a glow texture shows none.
-    const baseOf = (i, v, light) => {
-        const c = list.find(x => x.index === i) ?? first;
-        if (!c) return "Texture.blank";
-        const variantSkin = v && c.skins?.[v];
-        if (variantSkin) return light ? (variantSkin.emissiveTexture ? `Texture.${variantKey(c.index, v, true)}` : "Texture.blank") : `Texture.${variantKey(c.index, v, false)}`;
-        return light ? (table[lightKeyOfIndex(c.index)] ? `Texture.${lightKeyOfIndex(c.index)}` : "Texture.blank") : `Texture.${keyOfIndex(c.index)}`;
-    };
-
-    const stride = max + 1;
-    const flat = light => {
-        const out = [];
-        for (const v of [null, ...variants]) for (let i = 0; i <= max; i++) out.push(baseOf(slotOf(i), v, light));
-        return out;
-    };
-    const idxExpr = variants.length
-        ? `${variantOffsetExpr(variants, ns, stride)} + q.property('${ns}:species_index')`
-        : `q.property('${ns}:species_index')`;
-
-    // geometry: one array entry per index, from the rig (distinct geometries become Geometry.<name> entries)
-    const geoNames = new Map();
-    const geoFor = c => { const g = rigOf(c).geometry; if (!geoNames.has(g)) geoNames.set(g, `g${geoNames.size}`); return geoNames.get(g); };
-    const geoArr = [];
-    for (let i = 0; i <= max; i++) geoArr.push(`Geometry.${geoFor(list.find(x => x.index === slotOf(i)) ?? first ?? { rig: undefined })}`);
-    const geometries = {};
-    for (const [g, name] of geoNames) geometries[name] = g;
-
-    const materials = new Map();
-    const matFor = c => { const m = rigOf(c).material ?? defaults.material; if (!materials.has(m)) materials.set(m, `m${materials.size}`); return materials.get(m); };
-    const matArr = [];
-    for (let i = 0; i <= max; i++) matArr.push(`Material.${matFor(list.find(x => x.index === slotOf(i)) ?? first ?? {})}`);
-
+    const skins = skinList(characters);
     const emissive = hasEmissive(characters);
+
+    const geoNames = new Map(), matNames = new Map();
+    const geoArr = [], matArr = [];
+    for (let i = 0; i <= max; i++) {
+        const rig = rigOf(charAt(i));
+        if (!geoNames.has(rig.geometry)) geoNames.set(rig.geometry, `g${geoNames.size}`);
+        const mat = rig.material ?? defaults.material;
+        if (!matNames.has(mat)) matNames.set(mat, `m${matNames.size}`);
+        geoArr.push(`Geometry.${geoNames.get(rig.geometry)}`);
+        matArr.push(`Material.${matNames.get(mat)}`);
+    }
+
+    const skinProp = `q.property('${ns}:skin_id')`;
     const doc = {
         arrays: {
-            textures: { [`Array.${ns}_skin`]: flat(false) },
+            textures: { [`Array.${ns}_skin`]: skins.length ? skins.map(s => `Texture.skin${s.id}`) : ["Texture.blank"] },
             geometry: { [`Array.${ns}_geo`]: geoArr },
             materials: { [`Array.${ns}_mat`]: matArr },
         },
         geometry: `Array.${ns}_geo[q.property('${ns}:species_index')]`,
         materials: [{ "*": `Array.${ns}_mat[q.property('${ns}:species_index')]` }],
-        textures: [`Array.${ns}_skin[${idxExpr}]`],
+        textures: [`Array.${ns}_skin[${skinProp}]`],
     };
+    const materials = Object.fromEntries([...matNames].map(([m, n]) => [n, m]));
     if (emissive) {
-        doc.arrays.textures[`Array.${ns}_glow`] = flat(true);
+        doc.arrays.textures[`Array.${ns}_glow`] = skins.map(s => (s.emissive ? `Texture.glow${s.id}` : "Texture.blank"));
         doc.materials.push({ "*": "Material.glow" });
-        doc.textures.push(`Array.${ns}_glow[${idxExpr}]`);
+        doc.textures.push(`Array.${ns}_glow[${skinProp}]`);
+        materials.glow = "entity_emissive_alpha";
     }
-    return { controller: { format_version: "1.10.0", render_controllers: { [`controller.render.${ns}_${key}`]: doc } }, geometries, materials: Object.fromEntries([...materials].map(([m, n]) => [n, m])), emissive };
+
+    // overlays: index = rig_index * (levels + 1) + level; a rig without textures for the overlay shows nothing
+    const maxRig = Math.max(0, ...Object.values(rigs).map(r => r.index));
+    const rigIdOfIndex = new Map(Object.values(rigs).map(r => [r.index, r.id]));
+    const overlayProperties = {};
+    for (const ov of overlayList(overlays)) {
+        const levels = overlayLevels(ov), stride = levels + 1, arr = [];
+        for (let r = 0; r <= maxRig; r++) {
+            const rigId = rigIdOfIndex.get(r);
+            const useKey = rigId && ov.levels?.[rigId] ? rigId : "*";
+            const set = ov.levels?.[useKey] ?? [];
+            for (let l = 0; l <= levels; l++) arr.push(l > 0 && set[l - 1] ? `Texture.${overlayKey(ov, useKey, l)}` : "Texture.blank");
+        }
+        const name = `Array.${ns}_ov_${ov.id}`;
+        doc.arrays.textures[name] = arr;
+        doc.materials.push({ "*": `Material.ov_${ov.id}` });
+        doc.textures.push(`${name}[q.property('${ns}:rig_index') * ${stride} + q.property('${ns}:ov_${ov.id}')]`);
+        materials[`ov_${ov.id}`] = ov.material ?? "entity_alpha";
+        overlayProperties[`${ns}:ov_${ov.id}`] = { type: "int", range: [0, Math.max(1, levels)], default: 0, client_sync: true };
+    }
+
+    const geometries = Object.fromEntries([...geoNames].map(([g, n]) => [n, g]));
+    return { controller: { format_version: "1.10.0", render_controllers: { [`controller.render.${ns}_${key}`]: doc } }, geometries, materials, emissive, skinCount: skins.length, overlayProperties };
 }
 
-function variantOffsetExpr(variants, ns, stride) {
-    // skin_variant v (1..3) -> position of that variant among the defined ones, times stride (variant 0 -> 0)
-    const pairs = variants.map(v => [SKIN_VARIANTS.indexOf(v), (variants.indexOf(v) + 1) * stride]);
-    return lookupExpr(pairs, `q.property('${ns}:skin_variant')`, 0);
-}
-
-module.exports = { SKIN_VARIANTS, SCALE_UNIT, BLANK_TEXTURE, scaleProperty, textureTable, hasEmissive, lookupExpr, scaleExpression, featureExpression, renderController, usedVariants };
+module.exports = {
+    SCALE_UNIT, BLANK_TEXTURE, DEFAULT_SKIN, SKIN_NAME,
+    skinList, skinIds, hasEmissive, textureTable, lookupExpr, scaleExpression, scaleProperty, featureExpression, renderController, overlayList, overlayLevels,
+};

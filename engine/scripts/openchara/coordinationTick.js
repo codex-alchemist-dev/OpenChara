@@ -6,8 +6,9 @@
 import { world, system } from "@minecraft/server";
 import { readSquads } from "./squads.js";
 import { findNearbyHostiles } from "./perception.js";
-import { assignTargets, applyHealthReassignment, computePosture } from "./coordination.js";
+import { assignTargets, applyHealthReassignment, computePosture, getSquadPosture } from "./coordination.js";
 import { setAssignment } from "./fsm.js";
+import { evaluateSquadForms } from "./look/formController.js";
 import { centroidOf, gatherManifestedMembers } from "./squadContext.js";
 
 const COORDINATION_INTERVAL_TICKS = 10; // ~0.5s, same cadence as perception
@@ -27,7 +28,8 @@ function tickSquad(owner, squad) {
     }
 
     applyHealthReassignment(members);
-    computePosture(squad.id, owner, members, hostiles, centroid);
+    const posture = computePosture(squad.id, owner, members, hostiles, centroid);
+    evaluateSquadForms(owner, members, hostiles, posture ?? getSquadPosture(squad.id));
 }
 
 export function startCoordinationLoop() {

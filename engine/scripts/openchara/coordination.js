@@ -10,7 +10,7 @@
 // to gate against yet). Health/aggro-weighted reassignment IS fully real.
 
 import { getMemberAxes, setEngagement, healthBucket } from "./fsm.js";
-import { getClass } from "./classData.js";
+import { classOf } from "./look/forms.js";
 import { dist2D } from "./squadContext.js";
 
 export const POSTURE = ["passive", "alert", "engaged", "regrouping", "retreating", "protecting"];
@@ -67,7 +67,7 @@ export function assignTargets(members, hostiles) {
 // this checks for it anyway so a healer class added later needs zero
 // changes here.
 export function computeProtectPriority(player, members) {
-    const healers = members.filter(m => getClass(m.record.class).positioning.role === "healer");
+    const healers = members.filter(m => classOf(m.record).positioning.role === "healer");
     const bucketRank = { critical: 0, wounded: 1, healthy: 2 };
     const byHealth = [...members].sort((a, b) => bucketRank[healthBucket(a.entity)] - bucketRank[healthBucket(b.entity)]);
     const lowestHealth = byHealth[0];

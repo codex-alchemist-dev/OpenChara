@@ -16,6 +16,8 @@ import { startArmyLoop } from "./army.js";
 import { registerSouls } from "./souls.js";
 import { TAG } from "./ids.js";
 import "./ui/builtins.js"; // built-in UI providers + actions (registered at load)
+import { startLookSystem } from "./look/lookSystem.js";
+import { startFormController } from "./look/formController.js";
 import { startHud } from "./ui/hud.js";
 import { startContainers } from "./ui/container.js";
 import { startRts } from "./ui/rts.js";
@@ -35,6 +37,8 @@ export function startOpenChara() {
     startCoordinationLoop();
     startPlaybookTriggerLoop();
     startStatTracking();
+    startLookSystem();
+    startFormController();
     startOrderLoop();
     startHuntLoop();
     startArmyLoop();

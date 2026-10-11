@@ -8,7 +8,7 @@
 // and per-class descriptor weighting.
 
 import { resolveSlotWithHysteresis } from "./slotResolution.js";
-import { getClass } from "./classData.js";
+import { classOf } from "./look/forms.js";
 import { navigateToCoordinate } from "./navigation.js";
 
 // Each formation type maps (count, headingRadians) -> an array of
@@ -113,7 +113,7 @@ function roughOffsetPosition(anchor, offset) {
 // This is exactly Section 8.3's "a playbook just supplies different
 // descriptor weights per role" idea, applied to plain formations first.
 function buildDescriptor(idealOffset, record, formationType) {
-    const positioning = getClass(record.class).positioning;
+    const positioning = classOf(record).positioning;
     const isRanged = positioning.role === "ranged";
     // Phalanx is specifically about density - a much tighter minimum
     // separation than every other formation, which otherwise default to a

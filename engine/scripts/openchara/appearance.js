@@ -10,9 +10,10 @@ const SCALE_UNIT = 1000;   // body_scale property is permille (same as src/build
 export const getRig = id => (id ? RIGS[id] ?? null : null);
 
 /** @param {object} entity the spawned character @param {object} species getSpeciesInfo() result */
-export function applyAppearance(entity, species) {
+export function applyAppearance(entity, species, skinId = species.skinIds?.default ?? 0) {
     const set = (key, value) => { try { entity.setProperty(`${NS}:${key}`, value); } catch (e) { /* entity gone, or property not generated */ } };
     set("species_index", species.index);
+    set("skin_id", skinId);
     set("body_scale", Math.round((typeof species.body?.scale === "number" ? species.body.scale : 1) * SCALE_UNIT));
     set("rig_index", getRig(species.rig)?.index ?? 0);
 }

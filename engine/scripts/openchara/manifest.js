@@ -9,7 +9,7 @@ import { getCharacter, setManifestedEntityId, applyDespawnSnapshot, getOrder } f
 import { emit } from "./events.js";
 import { RULES } from "./rules.js";
 import { getSpeciesInfo } from "./speciesData.js";
-import { getClass } from "./classData.js";
+import { applyCombatRole } from "./look/forms.js";
 import { serializeGear, deserializeGear, serializeInventory, deserializeInventory } from "./itemSerializer.js";
 import { NS, CHAR, TAG } from "./ids.js";
 
@@ -84,8 +84,7 @@ export function manifestCharacter(owner, characterId, location, dimension) {
     const order = getOrder(record);
     if (order !== "wander" && order !== "home") { try { entity.triggerEvent(`${NS}:wander_off`); } catch (e) { /* fine */ } }
     // Combat style from her class (entity JSON's ${NS}:melee / cw:ranged groups).
-    const role = getClass(record.class).positioning?.role === "ranged" ? `${NS}:role_ranged` : `${NS}:role_melee`;
-    try { entity.triggerEvent(role); } catch (e) { /* fine */ }
+    applyCombatRole(entity, record);
 
     // Self-policing identity stamp (Section 6) - the entity's own copy of
     // "who am I," purely so it can check itself against the data record.

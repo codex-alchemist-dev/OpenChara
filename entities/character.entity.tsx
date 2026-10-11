@@ -44,7 +44,8 @@ export default (
         formatVersion="1.21.10"
         properties={{
             "{{ns}}:species_index": { type: "int", range: [0, V.maxCharacterIndex], default: 0, client_sync: true },
-            "{{ns}}:skin_variant": { type: "int", range: [0, V.skinVariantMax], default: 0, client_sync: true },
+            "{{ns}}:skin_id": { type: "int", range: [0, V.skinMax], default: 0, client_sync: true },
+            ...V.overlayProperties,
             "{{ns}}:body_scale": { type: "int", range: [100, 10000], default: 1000, client_sync: true },
             "{{ns}}:rig_index": { type: "int", range: [0, V.maxRigIndex], default: 0, client_sync: true },
         }}

@@ -19,7 +19,7 @@ import { world, system } from "@minecraft/server";
 import { readIndex } from "./characterIndex.js";
 import { getCharacter, getOrder } from "./characterRecord.js";
 import { navigateToCoordinate, isNavigating, cancelNavigation } from "./navigation.js";
-import { getClass } from "./classData.js";
+import { applyCombatRole } from "./look/forms.js";
 import { getTaskLock } from "./fsm.js";
 import { NS, TAG } from "./ids.js";
 
@@ -56,8 +56,7 @@ function ensureInitialized(entity, record, order) {
     if (initialized.has(entity.id)) return;
     initialized.add(entity.id);
     applyOrderToEntity(entity, order);
-    const ranged = getClass(record.class).positioning?.role === "ranged";
-    try { entity.triggerEvent(ranged ? `${NS}:role_ranged` : `${NS}:role_melee`); } catch (e) { /* fine */ }
+    applyCombatRole(entity, record);
 }
 
 // Where "follow" characters follow a player to, when that isn't the player

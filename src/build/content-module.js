@@ -23,6 +23,10 @@ module.exports = ctx => {
         content.characters[id].bust ??= pp.bust;
     }
 
+    // Each character learns the global skin ids the render controller will use (regenerated every build, never stored).
+    const ids = species.skinIds(content.characters);
+    for (const [id, map] of Object.entries(ids)) content.characters[id].skinIds = map;
+
     const config = {
         name: p.name,
         namespace: p.namespace,
@@ -41,11 +45,12 @@ module.exports = ctx => {
         `export const ABILITIES = ${j(content.abilities)};\n` +
         `export const QUESTS = ${j(content.quests)};\n` +
         `export const RIGS = ${j(content.rigs)};\n` +
+        `export const OVERLAYS = ${j(content.overlays)};\n` +
         `export const SCHEMA = ${j(content.schema)};\n`;
 
     // Render controller: per-species geometry/material/texture (and glow + alternate skins) - see species.js.
     const ns = p.namespace, key = p.character.key;
-    const { controller } = species.renderController({ ns, key, characters: content.characters, rigs: content.rigs, defaults: p.character });
+    const { controller } = species.renderController({ ns, key, characters: content.characters, rigs: content.rigs, overlays: content.overlays, defaults: p.character });
     rp[`render_controllers/${key}.render_controllers.json`] = JSON.stringify(controller, null, 2) + "\n";
 
     rp[`render_controllers/ghost_block.render_controllers.json`] = JSON.stringify(ghostRenderController(p.namespace, loadAppearance({ modDir: ctx.modDir, packages: ctx.packages, extraDirs: ctx.mod.openchara?.ghostSources ?? [] }), { ...GHOST_KIND, tint: { [GHOST_KIND.MINE]: GHOST_LOOK[GHOST_KIND.MINE].tint, [GHOST_KIND.BUILD]: GHOST_LOOK[GHOST_KIND.BUILD].tint } }), null, 2) + "\n";

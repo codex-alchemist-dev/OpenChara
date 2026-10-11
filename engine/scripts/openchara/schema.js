@@ -33,6 +33,8 @@ const CORE_FIELDS = {
     inventory: { type: "array", default: [] },
     quests: { type: "object", default: {} },
     bondPartners: { type: "array", default: [] },
+    form: { type: "string", nullable: true, optional: true },   // current form id (species `forms`); null = her default form
+    look: { type: "object", optional: true },                     // small appearance state: { seed, dirt, wetUntil, ... } (engine look/)
     squadId: { type: "string", nullable: true, optional: true, default: null },
     order: { type: "string", optional: true, default: "follow" },
     homeLocation: { type: "object", nullable: true, optional: true, default: null },
