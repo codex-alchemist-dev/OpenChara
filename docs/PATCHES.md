@@ -105,6 +105,24 @@ Writes go through `updateCharacter(owner, id, mutate)`, `grantTracksXp(owner, id
 
 `index` is written onto every spawned entity and picks the texture from the generated render controller. Give each character a unique, permanent number; gaps are fine. Put the texture file itself under `rp/`.
 
+**Every character is the same entity.** A character is data, not a separate entity: `index` (the `species_index` property) selects her look, and a few more per-entity properties are set when she is manifested (`applyAppearance`). Optional fields that drive the look:
+
+| field | meaning |
+|---|---|
+| `emissiveTexture` | glow layer, drawn with the emissive material over the base skin |
+| `rig` | id of `rigs/<id>.json`: which geometry (and material) she uses; default is the project's `character.geometry` |
+| `body` | `{ "scale": 0.9 }`: model scale, applied client-side through the `body_scale` property |
+| `skins` | `{ "night" \| "water" \| "waterNight": { "texture", "emissiveTexture"? } }`: alternate skins, selected per entity with `setSkinVariant(entity, "night")` (policy for when is the project's) |
+| `legacy` | `{ "types": ["ac:march7"] }`: old entity types that import as this character; `findSpeciesByLegacyType` / `legacyTypeMap` read it |
+
+## rigs/\<id\>.json
+
+```json
+{ "id": "waifuB", "index": 1, "geometry": "geometry.waifuB", "material": "skeleton", "animate": ["boobs_controller"] }
+```
+
+A rig is a body: geometry, material and the animation names that body supports. `index` is permanent like a character index (stored as the `rig_index` property). The render controller picks the geometry and material per species from the character's rig. Validation errors name the file.
+
 ## classes/\<id\>.json
 
 ```json

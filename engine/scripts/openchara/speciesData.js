@@ -20,3 +20,16 @@ export const DEFAULT_SPECIES = Object.values(CHARACTERS).sort((a, b) => a.index 
 export function getSpeciesInfo(species) {
     return { ...(SPECIES[species] ?? SPECIES[DEFAULT_SPECIES] ?? {}) };
 }
+
+/** The species id that claims a legacy entity type (a character's `legacy.types`, e.g. "ac:march7"), or null. */
+export function findSpeciesByLegacyType(typeId) {
+    for (const c of Object.values(CHARACTERS)) if (c.legacy?.types?.includes(typeId)) return c.id;
+    return null;
+}
+
+/** Every legacy entity type any character claims, as { typeId: speciesId } (for importers and /scriptevent listings). */
+export function legacyTypeMap() {
+    const out = {};
+    for (const c of Object.values(CHARACTERS)) for (const t of c.legacy?.types ?? []) out[t] = c.id;
+    return out;
+}

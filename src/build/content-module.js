@@ -5,6 +5,7 @@
 const path = require("path");
 const { loadProjectContent } = require("./project.js");
 const { walk } = require("./content.js");
+const species = require("./species.js");
 const { loadAppearance, ghostRenderController } = require("./blockAppearance.js");
 const { GHOST_KIND, GHOST_LOOK } = require("../../engine/scripts/openchara/build/ghostBlocks.cjs");
 
@@ -39,26 +40,13 @@ module.exports = ctx => {
         `export const CLASSES = ${j(content.classes)};\n` +
         `export const ABILITIES = ${j(content.abilities)};\n` +
         `export const QUESTS = ${j(content.quests)};\n` +
+        `export const RIGS = ${j(content.rigs)};\n` +
         `export const SCHEMA = ${j(content.schema)};\n`;
 
-    // Render controller: one texture array slot per character index (a gap renders the lowest-index character).
+    // Render controller: per-species geometry/material/texture (and glow + alternate skins) - see species.js.
     const ns = p.namespace, key = p.character.key;
-    const chars = Object.values(content.characters);
-    const first = [...chars].sort((a, b) => a.index - b.index)[0];
-    const maxIndex = Math.max(0, ...chars.map(c => c.index));
-    const arr = [];
-    for (let i = 0; i <= maxIndex; i++) arr.push(`Texture.species${chars.some(c => c.index === i) ? i : first?.index ?? 0}`);
-    rp[`render_controllers/${key}.render_controllers.json`] = JSON.stringify({
-        format_version: "1.10.0",
-        render_controllers: {
-            [`controller.render.${ns}_${key}`]: {
-                arrays: { textures: { [`Array.${ns}_species`]: arr } },
-                geometry: "Geometry.default",
-                materials: [{ "*": "Material.default" }],
-                textures: [`Array.${ns}_species[q.property('${ns}:species_index')]`],
-            },
-        },
-    }, null, 2) + "\n";
+    const { controller } = species.renderController({ ns, key, characters: content.characters, rigs: content.rigs, defaults: p.character });
+    rp[`render_controllers/${key}.render_controllers.json`] = JSON.stringify(controller, null, 2) + "\n";
 
     rp[`render_controllers/ghost_block.render_controllers.json`] = JSON.stringify(ghostRenderController(p.namespace, loadAppearance({ modDir: ctx.modDir, packages: ctx.packages, extraDirs: ctx.mod.openchara?.ghostSources ?? [] }), { ...GHOST_KIND, tint: { [GHOST_KIND.MINE]: GHOST_LOOK[GHOST_KIND.MINE].tint, [GHOST_KIND.BUILD]: GHOST_LOOK[GHOST_KIND.BUILD].tint } }), null, 2) + "\n";
 

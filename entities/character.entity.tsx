@@ -42,11 +42,17 @@ const targetFilters = (withCreeperRule: boolean) => ({
 export default (
     <Entity identifier="{{ns}}:{{char}}"
         formatVersion="1.21.10"
-        properties={{ "{{ns}}:species_index": { type: "int", range: [0, V.maxCharacterIndex], default: 0, client_sync: true } }}
+        properties={{
+            "{{ns}}:species_index": { type: "int", range: [0, V.maxCharacterIndex], default: 0, client_sync: true },
+            "{{ns}}:skin_variant": { type: "int", range: [0, V.skinVariantMax], default: 0, client_sync: true },
+            "{{ns}}:body_scale": { type: "int", range: [100, 10000], default: 1000, client_sync: true },
+            "{{ns}}:rig_index": { type: "int", range: [0, V.maxRigIndex], default: 0, client_sync: true },
+        }}
         clientFormatVersion="1.16.0"
-        materials={{ default: V.characterMaterial }}
+        materials={V.characterMaterials}
         textures={V.characterTextures}
-        geometry={{ default: V.characterGeometry }}
+        geometry={V.characterGeometry}
+        clientScripts={V.characterClientScripts}
         renderControllers={["controller.render.{{ns}}_{{char}}"]}
         enableAttachables={true}
         hideArmor={false}>

@@ -3,6 +3,7 @@
 // always just a disposable visualization of her data record - losing it
 // never loses her; manifesting again from the record is always possible.
 
+import { applyAppearance } from "./appearance.js";
 import { world, system } from "@minecraft/server";
 import { getCharacter, setManifestedEntityId, applyDespawnSnapshot, getOrder } from "./characterRecord.js";
 import { emit } from "./events.js";
@@ -75,7 +76,7 @@ export function manifestCharacter(owner, characterId, location, dimension) {
     try { entity = dimension.spawnEntity(`${NS}:${CHAR}`, location); }
     catch (e) { return fail(characterId, `spawn failed (${e?.message ?? e})`); }
     const speciesInfo = getSpeciesInfo(record.species);
-    entity.setProperty(`${NS}:species_index`, speciesInfo.index);
+    applyAppearance(entity, speciesInfo);
     entity.nameTag = displayName(record);
     // Standing order's entity-side switch: the spawn event adds the wander
     // group by default, so turn it back off for anything but wander/home
