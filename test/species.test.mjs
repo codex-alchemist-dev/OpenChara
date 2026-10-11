@@ -108,8 +108,8 @@ test("loadContent accepts the full set of look fields: rigs, overlays, skins, ru
     const c = loadContent(project({
         "rigs/wb.json": { index: 1, geometry: "geometry.waifuB", animate: ["boobs"] },
         "overlays/dirt.json": { levels: { "*": ["textures/oc/d1", "textures/oc/d2"] }, drive: { source: "dirt", thresholds: [0.3, 0.7] } },
-        "classes/hunt.json": { displayName: "Hunt" },
-        "classes/pres.json": { displayName: "Pres" },
+        "classes/hunt.json": { displayName: "Hunt", baseStats: { maxHp: 900, atk: 85, def: 50, spd: 100, critRate: 0.05, critDmg: 0.5 } },
+        "classes/pres.json": { displayName: "Pres", baseStats: { maxHp: 900, atk: 85, def: 50, spd: 100, critRate: 0.05, critDmg: 0.5 } },
         "characters/a.json": {
             ...ok, rig: "wb", body: { scale: 0.9 }, emissiveTexture: "textures/entity/light/a", legacy: { types: ["ac:a"] },
             skins: { night: { texture: "textures/entity/a_n" }, hunt: { texture: "textures/entity/a_h" }, hunt_night: { texture: "textures/entity/a_hn" } },

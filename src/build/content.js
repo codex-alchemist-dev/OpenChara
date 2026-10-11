@@ -4,6 +4,7 @@
 
 const fs = require("fs");
 const { validateCharacter, validateRig, validateOverlay } = require("./validateLooks.js");
+const { validateClassBalance } = require("./balance.js");
 const path = require("path");
 
 function readJson(file) {
@@ -67,6 +68,7 @@ function loadContent(p) {
     }
     for (const cls of Object.values(classes)) {
         for (const a of cls.defaultAbilities ?? []) if (!abilities[a]) throw new Error(`classes/${cls.id}: unknown ability "${a}"`);
+        validateClassBalance(cls);
     }
     return { characters, classes, abilities, quests, rigs, overlays, schema };
 }
