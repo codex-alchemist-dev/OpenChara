@@ -9,14 +9,14 @@ const require = createRequire(import.meta.url);
 const { validateClassBalance } = require("../src/build/balance.js");
 const { loadContent } = require("../src/build/content.js");
 
-const good = { id: "x", baseStats: { maxHp: 900, atk: 85, def: 50, spd: 100, critRate: 0.05, critDmg: 0.5 } };
+const good = { id: "x", baseStats: { maxHp: 40, atk: 85, def: 50, spd: 100, critRate: 0.05, critDmg: 0.5 } };
 const withStat = (k, v) => ({ id: "x", baseStats: { ...good.baseStats, [k]: v } });
 
 const cases = [
     ["a balanced class passes", good, null],
     ["an OP attack is refused and named", withStat("atk", 115), /classes\/x: baseStats\.atk is 115/],
     ["an OP-tanky hp is refused", withStat("maxHp", 1500), /baseStats\.maxHp is 1500/],
-    ["a missing stat is refused", { id: "x", baseStats: { maxHp: 900 } }, /baseStats\.atk is required/],
+    ["a missing stat is refused", { id: "x", baseStats: { maxHp: 40 } }, /baseStats\.atk is required/],
     ["an extreme crit is refused", withStat("critRate", 0.2), /baseStats\.critRate/],
 ];
 let passed = 0;

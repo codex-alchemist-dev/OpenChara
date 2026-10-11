@@ -5,7 +5,7 @@
 "use strict";
 
 const BASE_BANDS = {
-    maxHp: [700, 1100],
+    maxHp: [30, 50],   // the real in-game health scale (characters are spawned with 40 health)
     atk: [70, 100],
     def: [40, 70],
     spd: [90, 110],

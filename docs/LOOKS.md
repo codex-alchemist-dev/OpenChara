@@ -47,7 +47,7 @@ An unknown condition name is false and logged once, never a crash.
 "forms": {
   "hunt":         { "displayName": "The Hunt", "class": "march7_hunt", "skin": "hunt", "weapons": ["sword"],
                     "tactics": [ { "when": {"nearestEnemy": {"lt": 5}}, "score": 2 } ] },
-  "preservation": { "class": "frost_marksman", "weapons": ["bow"],
+  "preservation": { "class": "generalist", "weapons": ["bow"],
                     "tactics": [ { "when": {"alliesWounded": {"gte": 2}}, "score": 3, "urgent": true } ] }
 },
 "defaultForm": "preservation",

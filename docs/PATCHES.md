@@ -96,7 +96,7 @@ Writes go through `updateCharacter(owner, id, mutate)`, `grantTracksXp(owner, id
   "id": "march7",
   "index": 0,
   "displayName": "March 7th",
-  "class": "frost_marksman",
+  "class": "generalist",
   "texture": "textures/entity/march7",
   "favoriteGifts": ["minecraft:cake"],
   "eidolonCost": [{ "item": "minecraft:amethyst_shard", "amount": 16 }]
@@ -128,12 +128,12 @@ A rig is a body: geometry, material and the animation names that body supports. 
 
 ```json
 {
-  "id": "frost_marksman",
-  "displayName": "Frost Marksman",
+  "id": "example_class",
+  "displayName": "Example Class",
   "positioning": { "role": "ranged", "preference": "elevatedFlank", "flankBias": 0.4 },
   "baseStats": { "maxHp": 800, "atk": 90, "def": 40, "spd": 100, "critRate": 0.05, "critDmg": 0.5, "energyRegen": 1, "effectHitRate": 0, "effectRes": 0, "breakEffect": 0 },
   "perLevelGrowth": { "maxHp": 42, "atk": 5.5, "def": 2.2 },
-  "defaultAbilities": ["frost_arrow"],
+  "defaultAbilities": [],
   "ultimate": null,
   "skillTree": { "nodes": {
     "deepfreeze_1": { "cost": 1, "prerequisites": [], "effect": { "atkPct": 0.05 }, "description": [{ "type": "text", "value": "+5% ATK" }] }
