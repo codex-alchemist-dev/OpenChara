@@ -54,7 +54,7 @@ A track is a Bedrock timeline animation (no bones) at **24 fps** setting the thr
 "animation.oc.lip.<clip>": { "animation_length": 2.5, "loop": "hold_on_last_frame",
   "timeline": { "0.0": ["v.oc_open=0;","v.oc_wide=1;","v.oc_closed=1;"], "0.0417": ["v.oc_open=0.5;","v.oc_wide=0.5;","v.oc_closed=0;"] } }
 ```
-`tools/lipsync.js` generates them from audio (any format via ffmpeg): amplitude -> openness, a spectral centroid / band ratio -> width, silence -> closed. The server plays a track with `entity.playAnimation("animation.oc.lip.<clip>")` alongside the sound.
+`tools/lipsync.js` generates them from audio (any format via ffmpeg; `node tools/lipsync.js <files|folder> --out lip.animation.json [--fps 24] [--expression N]`): loudness relative to the clip's own peak -> openness, spectral centroid -> width (low = narrow, high = wide), silence (relative or below -54 dBFS) -> closed, with one-frame closed gaps bridged. The analysis is pure and tested in `src/anim/lipsync.js`. The server plays a track with `entity.playAnimation("animation.oc.lip.<clip>")` alongside the sound.
 
 ## 5. Animation sets and controllers
 
