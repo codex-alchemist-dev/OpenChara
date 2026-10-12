@@ -35,6 +35,17 @@ function dominant(colors) {
     return best ? best.c : null;
 }
 
+/** Skin-like: warm hue (red to yellow), moderate saturation, fairly light. Hair, eyes and clothes mostly are not. */
+function skinLike(c) {
+    if (!c) return false;
+    const [r, g, b] = c, mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+    if (mx < 140 || mx === mn) return false;
+    const sat = (mx - mn) / mx;
+    let hue;
+    if (mx === r) hue = 60 * (((g - b) / (mx - mn) + 6) % 6); else if (mx === g) hue = 60 * ((b - r) / (mx - mn) + 2); else hue = 60 * ((r - g) / (mx - mn) + 4);
+    return hue >= 0 && hue <= 50 && sat >= 0.08 && sat <= 0.7;
+}
+
 const rect = (img, x0, y0, w, h) => {
     const out = [];
     for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) out.push(px(img, x, y));
@@ -53,8 +64,13 @@ function derivePalette(img, layout = {}) {
     const at = (cx, cy) => px(img, Math.floor(fx + (cx + 0.5) * cell), Math.floor(fy + (cy + 0.5) * cell));
 
     const faceAll = rect(img, fx, fy, fw, fh);
-    // skin: the dominant color of the lower face (cheeks/chin), where there is no hair or features
-    const skin = dominant(rect(img, fx, fy + 4 * cell, fw, 4 * cell)) ?? dominant(faceAll) ?? DEFAULTS.skin;
+    // skin: the dominant skin-like color of the face as drawn (hat layer over base). Anime faces often have hair or a mask over the
+    // lower face, so the most common color is not necessarily skin; with no skin-like pixels at all the default tone is used.
+    const [hx, hy] = (layout.hat ?? [40, 8, 8, 8]).map(v => v * scale);
+    const shown = [];
+    for (let y = 0; y < fh; y++) for (let x = 0; x < fw; x++) shown.push(px(img, hx + x, hy + y) ?? px(img, fx + x, fy + y));
+    const skins = shown.filter(skinLike);
+    const skin = skins.length >= Math.max(4, shown.length * 0.04) ? dominant(skins) : DEFAULTS.skin;
     // brow: the hair line (top rows of the face); if it equals the skin there is no hair on the face, so use the head top
     let brow = dominant(rect(img, fx, fy, fw, 1.5 * cell));
     if (!brow || lum(brow) > lum(skin) + 60 || sameish(brow, skin)) {
