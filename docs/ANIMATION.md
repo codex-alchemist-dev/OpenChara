@@ -73,3 +73,9 @@ Reference packs (Actions & Stuff, Villager News) are obfuscated: bone names are 
 
 ## 8. Not done yet / open
 Expressions library import; Actions & Stuff action catalog and retargeting; controller compiler; client entity animation passthrough in OpenRock; per-character face palette generation in the build; in-game verification of every part.
+
+## Face kit modes (update)
+
+- `full` (pixel skins): a skin-colored `cover` plane redraws the 8x8 face; 2x1 eyes (like a standard skin), lids, brow, mouth, teeth. The brow is hidden at rest (`restAnimation`).
+- `talk` (painted AC faces): only `mouth`, `teethTop`, `teethBottom`; they collapse to nothing when `v.oc_closed` is 1 (`mouthAnimation({ talkOnly: true })`).
+- Every plane is pushed `FRONT_SHIFT` (-0.06) forward of the head's front face, order kept: brow, teeth, mouth, lids, eyes, cover (front to back).

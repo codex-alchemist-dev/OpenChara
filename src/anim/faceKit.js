@@ -8,8 +8,17 @@
 const PALETTE_SIZE = 16;
 const PALETTE = { skin: 0, eye: 1, lid: 2, brow: 3, mouth: 4, inside: 5, teeth: 6, blush: 7 };   // pixel index along row 0
 
-const FACE_BONES = ["face", "eyeL", "eyeR", "lidUpper", "lidUpperL", "lidUpperR", "lidLower", "lidLowerL", "lidLowerR", "brow", "mouth", "teethTop", "teethBottom"];
-const CUBE_BONES = ["eyeL", "eyeR", "lidUpperL", "lidUpperR", "lidLowerL", "lidLowerR", "brow", "mouth", "teethTop", "teethBottom"];
+const FACE_BONES = ["face", "cover", "eyeL", "eyeR", "lidUpper", "lidUpperL", "lidUpperR", "lidLower", "lidLowerL", "lidLowerR", "brow", "mouth", "teethTop", "teethBottom"];
+const CUBE_BONES = ["cover", "eyeL", "eyeR", "lidUpperL", "lidUpperR", "lidLowerL", "lidLowerR", "brow", "mouth", "teethTop", "teethBottom"];
+
+// The reference villager has NO front face on its head, so its planes sit right at the surface. A normal head has a front face, so
+// every plane is pushed this far forward (keeping their order) or it would be hidden inside the head.
+const FRONT_SHIFT = -0.06;
+
+// Two ways to wear the kit:
+//   full  a pixel skin: a skin-colored cover redraws the 8x8 face (eyes 2x1 like a standard skin's, brow, mouth) so everything can move
+//   talk  a painted face (AC): ONLY the mouth and teeth, collapsed when closed, so the painted face is never covered
+const MODES = { full: new Set(["cover", "eyeL", "eyeR", "lidUpper", "lidUpperL", "lidUpperR", "lidLower", "lidLowerL", "lidLowerR", "brow", "mouth", "teethTop", "teethBottom"]), talk: new Set(["mouth", "teethTop", "teethBottom"]) };
 
 /** The default head: an 8x8x8 cube with origin [-4, 24, -4] (pivot of the head bone [0, 24, 0]). */
 const DEFAULT_ANCHOR = { origin: [-4, 24, -4], size: 8 };
@@ -23,19 +32,22 @@ function paletteUv(color, tex) {
 }
 
 // The kit in head-local units, relative to an 8x8x8 head whose origin is [-4, 24, -4]. [x, y, z] origins and [w, h, d] sizes.
+const Z = z => Math.round((z + FRONT_SHIFT) * 1e5) / 1e5;
 const KIT = [
-    { name: "eyeL", parent: "face", color: "eye", pivot: [1.5, 27.5, -3.975], cube: { origin: [0.975, 26.975, -3.975], size: [1.05, 1.05, 0] } },
-    { name: "eyeR", parent: "face", color: "eye", pivot: [-1.5, 27.5, -3.975], cube: { origin: [-2.025, 26.975, -3.975], size: [1.05, 1.05, 0] } },
-    { name: "lidUpper", parent: "face", pivot: [0, 29, -4] },
-    { name: "lidUpperL", parent: "lidUpper", color: "lid", pivot: [2, 29, -4], cube: { origin: [0.9875, 28, -4], size: [2.05, 1.025, 0] } },
-    { name: "lidUpperR", parent: "lidUpper", color: "lid", pivot: [-2, 29, -4], cube: { origin: [-3.0375, 28, -4], size: [2.05, 1.025, 0] } },
-    { name: "lidLower", parent: "face", pivot: [0, 26, -4] },
-    { name: "lidLowerL", parent: "lidLower", color: "lid", pivot: [2, 26, -4], cube: { origin: [0.9875, 25.975, -4], size: [2.05, 1.025, 0] } },
-    { name: "lidLowerR", parent: "lidLower", color: "lid", pivot: [-2, 26, -4], cube: { origin: [-3.0375, 25.975, -4], size: [2.05, 1.025, 0] } },
-    { name: "brow", parent: "face", color: "brow", pivot: [0, 28, -4.15], cube: { origin: [-3.05, 28, -4.15], size: [6.1, 1, 1] } },
-    { name: "mouth", parent: "face", color: "mouth", pivot: [0, 25.5, -4.0125], cube: { origin: [-2, 25, -4.025], size: [4, 1, 0.025] } },
-    { name: "teethTop", parent: "face", color: "teeth", pivot: [0, 25.7625, -4.025], cube: { origin: [-2.025, 25.525, -4.05], size: [4.05, 0.5, 0.05] } },
-    { name: "teethBottom", parent: "face", color: "teeth", pivot: [0, 25.2375, -4.025], cube: { origin: [-2.025, 24.975, -4.05], size: [4.05, 0.5, 0.05] } },
+    { name: "cover", parent: "face", color: "skin", pivot: [0, 28, Z(-4)], cube: { origin: [-4, 24, Z(-3.96)], size: [8, 8, 0] } },
+    // eyes: 2x1 like a standard skin's (columns 1-2 and 5-6 of the 8x8 face, row 4)
+    { name: "eyeL", parent: "face", color: "eye", pivot: [2, 27.5, Z(-3.975)], cube: { origin: [1, 27, Z(-3.975)], size: [2, 1, 0] } },
+    { name: "eyeR", parent: "face", color: "eye", pivot: [-2, 27.5, Z(-3.975)], cube: { origin: [-3, 27, Z(-3.975)], size: [2, 1, 0] } },
+    { name: "lidUpper", parent: "face", pivot: [0, 29, Z(-4)] },
+    { name: "lidUpperL", parent: "lidUpper", color: "lid", pivot: [2, 29, Z(-4)], cube: { origin: [0.9875, 28, Z(-4)], size: [2.05, 1.025, 0] } },
+    { name: "lidUpperR", parent: "lidUpper", color: "lid", pivot: [-2, 29, Z(-4)], cube: { origin: [-3.0375, 28, Z(-4)], size: [2.05, 1.025, 0] } },
+    { name: "lidLower", parent: "face", pivot: [0, 26, Z(-4)] },
+    { name: "lidLowerL", parent: "lidLower", color: "lid", pivot: [2, 26, Z(-4)], cube: { origin: [0.9875, 25.975, Z(-4)], size: [2.05, 1.025, 0] } },
+    { name: "lidLowerR", parent: "lidLower", color: "lid", pivot: [-2, 26, Z(-4)], cube: { origin: [-3.0375, 25.975, Z(-4)], size: [2.05, 1.025, 0] } },
+    { name: "brow", parent: "face", color: "brow", pivot: [0, 28.5, Z(-4.15)], cube: { origin: [-3, 28, Z(-4.15)], size: [6, 1, 1] } },
+    { name: "mouth", parent: "face", color: "mouth", pivot: [0, 25.5, Z(-4.0125)], cube: { origin: [-2, 25, Z(-4.025)], size: [4, 1, 0.025] } },
+    { name: "teethTop", parent: "face", color: "teeth", pivot: [0, 25.7625, Z(-4.025)], cube: { origin: [-2.025, 25.525, Z(-4.05)], size: [4.05, 0.5, 0.05] } },
+    { name: "teethBottom", parent: "face", color: "teeth", pivot: [0, 25.2375, Z(-4.025)], cube: { origin: [-2.025, 24.975, Z(-4.05)], size: [4.05, 0.5, 0.05] } },
 ];
 
 const DEFAULT_PIVOT_ORIGIN = [-4, 24, -4];
@@ -59,10 +71,15 @@ const round = v => Math.round(v * 1e5) / 1e5;
  */
 function faceBones(anchor, tex, headBone, opts = {}) {
     const prefix = opts.prefix ?? "";
+    const wanted = MODES[opts.mode ?? "full"];
+    if (!wanted) throw new Error(`faceKit: unknown mode "${opts.mode}" (full, talk)`);
     const n = name => prefix + name;
     const headPivot = mapPoint([0, 24, 0], anchor);
     const bones = [{ name: n("face"), parent: headBone, pivot: headPivot }];
     for (const k of KIT) {
+        // a structural parent bone (lidUpper/lidLower) is kept only when one of its children is
+        if (!wanted.has(k.name) && !KIT.some(c => c.parent === k.name && wanted.has(c.name))) continue;
+        if (!wanted.has(k.name) && k.cube) continue;
         const bone = { name: n(k.name), parent: n(k.parent), pivot: mapPoint(k.pivot, anchor) };
         if (k.cube) {
             const px = paletteUv(k.color, tex);
@@ -79,13 +96,13 @@ function faceBones(anchor, tex, headBone, opts = {}) {
  * @param {object} geometry one entry of `minecraft:geometry`
  * @param {{headBone: string, anchor?: {origin:number[], size:number}, prefix?: string}} opts
  */
-function injectFaceKit(geometry, { headBone, anchor, prefix = "" } = {}) {
+function injectFaceKit(geometry, { headBone, anchor, prefix = "", mode = "full" } = {}) {
     if (!geometry?.description?.identifier) throw new Error("faceKit: not a geometry");
     const bones = geometry.bones ?? [];
     if (!bones.some(b => b.name === headBone)) throw new Error(`faceKit: ${geometry.description.identifier} has no bone "${headBone}"`);
     const tex = [geometry.description.texture_width ?? 64, geometry.description.texture_height ?? 64];
     const used = new Set(bones.map(b => b.name));
-    const add = faceBones(anchor ?? findHeadAnchor(geometry, headBone) ?? DEFAULT_ANCHOR, tex, headBone, { prefix });
+    const add = faceBones(anchor ?? findHeadAnchor(geometry, headBone) ?? DEFAULT_ANCHOR, tex, headBone, { prefix, mode });
     for (const b of add) if (used.has(b.name)) throw new Error(`faceKit: ${geometry.description.identifier} already has a bone "${b.name}" (use a prefix)`);
     return { ...geometry, bones: [...bones, ...add] };
 }
@@ -101,12 +118,12 @@ function findHeadAnchor(geometry, headBone) {
 }
 
 /** part_visibility lists for the two render controllers: the body controller hides the kit, the face controller shows ONLY the kit. */
-function visibility(prefix = "") {
-    const cubes = CUBE_BONES.map(n => prefix + n);
+function visibility(prefix = "", mode = "full") {
+    const cubes = CUBE_BONES.filter(n => MODES[mode].has(n)).map(n => prefix + n);
     return {
         body: cubes.map(n => ({ [n]: false })),
         face: [{ "*": false }, ...cubes.map(n => ({ [n]: true }))],
     };
 }
 
-module.exports = { PALETTE, PALETTE_SIZE, FACE_BONES, CUBE_BONES, DEFAULT_ANCHOR, KIT, paletteUv, faceBones, injectFaceKit, findHeadAnchor, visibility };
+module.exports = { MODES, FRONT_SHIFT, PALETTE, PALETTE_SIZE, FACE_BONES, CUBE_BONES, DEFAULT_ANCHOR, KIT, paletteUv, faceBones, injectFaceKit, findHeadAnchor, visibility };
